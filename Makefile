@@ -1,0 +1,91 @@
+#
+# Makefile
+#-------------------------------------------------------------------------------
+
+NAME		:=	B
+
+COMP_SCRIPT	:=	bcomp.sh
+
+SRCS		:=	bcodegen.c
+
+SRC_DIR		:=	src
+OBJ_DIR		:=	build
+
+SRCS		:=	$(addprefix $(SRC_DIR)/, $(SRCS))
+
+OBJS 		:=	$(addprefix $(OBJ_DIR)/, $(SRCS:%.s=%.o))
+
+RM			:=	rm -rf
+MKDIR		:=	mkdir -p
+
+ifndef LEXER_NAME
+	LEXER_NAME	:= blexer
+endif
+
+LEXER_SRC	:=	$(SRC_DIR)/$(LEXER_NAME).l
+LEXER		:=	$(OBJ_DIR)/$(LEXER_NAME).c
+
+ifndef PARSER_NAME
+	PARSER_NAME	:= bparser
+endif
+
+PARSER_SRC	:=	$(SRC_DIR)/$(PARSER_NAME).y
+PARSER_OUT	:=	$(OBJ_DIR)/$(PARSER_NAME)
+PARSER		:=	$(PARSER_OUT).c
+
+ifeq ($(VERBOSE), 1)
+	CFLAGS	+=	-DB_VERBOSE
+endif
+
+all:		$(NAME)
+
+nix:
+	@nix develop
+
+$(NAME):	$(PARSER) $(LEXER) $(SRCS)
+	@echo " ■  building	$@"
+	@$(CC) $(CFLAGS) $^ -o $@ -I$(SRC_DIR) -g
+
+parser:		$(PARSER)
+
+$(PARSER):	$(PARSER_SRC)
+	@mkdir -p $(@D)
+	@echo " ■  building	parser"
+	@bison $< -Wcounterexamples -v --output=$(PARSER) --header=$(PARSER_OUT).h
+
+lexer:		$(LEXER)
+
+$(LEXER):	$(LEXER_SRC)
+	@mkdir -p $(@D)
+	@echo " ■  building	lexer"
+	@flex --outfile=$(LEXER) $< 
+
+clean:
+	@if [ -d $(OBJ_DIR) ]; then \
+		echo " ■  deleted	$(OBJ_DIR)"; \
+		$(RM) $(OBJ_DIR); \
+	fi
+
+fclean:			clean
+	@if [ -f "$(PARSER)" ]; then \
+		echo " ■  deleted	parser"; \
+		$(RM) $(PARSER); \
+		$(RM) $(PARSER_OUT).h; \
+	fi;
+	@if [ -f "$(LEXER)" ]; then \
+		echo " ■  deleted	lexer"; \
+		$(RM) $(LEXER); \
+	fi;
+
+re:					fclean all
+
+BOLD			=	\033[1m
+ITALIC			=	\033[3m
+
+RED				=	\033[31m
+GREEN			=	\033[32m
+YELLOW			=	\033[33m
+CYAN			=	\033[36m
+GRAY			=	\033[90m
+
+RESET			=	\033[0m
