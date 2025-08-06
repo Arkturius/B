@@ -77,7 +77,7 @@ CHAR        [^\n'\\]|\\[\\'\"nrtbf0]
 ";"			return SEMI;
 ","			return COMMA;
 
-0?{DIGIT}+					{ yylval.n = strtol(yytext, NULL, 0); return CONSTANT; }
+-?0?{DIGIT}+				{ yylval.n = strtol(yytext, NULL, 0); return CONSTANT; }
 
 '({CHAR}|{CHAR}{CHAR})'		{ yylval.s = strdup(yytext); return CHAR_CONSTANT; }
 

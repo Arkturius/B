@@ -6,7 +6,7 @@ NAME		:=	B
 
 COMP_SCRIPT	:=	bcomp.sh
 
-SRCS		:=	bcodegen.c
+SRCS		:=	
 
 SRC_DIR		:=	src
 OBJ_DIR		:=	build
@@ -59,6 +59,9 @@ $(LEXER):	$(LEXER_SRC)
 	@mkdir -p $(@D)
 	@echo " ■  building	lexer"
 	@flex --outfile=$(LEXER) $< 
+
+caca:
+	@make PARSER_NAME="gasparser" LEXER_NAME="gaslexer"
 
 clean:
 	@if [ -d $(OBJ_DIR) ]; then \

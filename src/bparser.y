@@ -11,7 +11,7 @@
 
 	int yyerror(const char *s);
 
-	# define BCOMPILER_IMPL
+	#define BCOMPILER_IMPLEMENTATION
 	#include <bcompiler.h>
 %}
 
@@ -24,7 +24,7 @@
 {
 	int			n;
 	String		s;
-	Expression	e;
+	Expr		e;
 }
 
 %token<n>	CONSTANT
@@ -91,8 +91,9 @@
 %%
 
 program
-	: { b_program(); }
+	: { B_program_start(); }
 		definition_list
+	  { B_program_stop(); }
 	;
 
 definition_list
@@ -105,10 +106,7 @@ definition
 	;
 
 function
-	: NAME
-		{ b_function_start($1); }
-		LPAREN param_list_opt RPAREN compound_statement
-		{ b_function_end(); }
+	: NAME LPAREN param_list_opt RPAREN compound_statement
 	;
 
 param_list_opt
@@ -126,7 +124,9 @@ param
 	;
 
 compound_statement
-	: LBRACE statement_list RBRACE
+	: LBRACE 
+		statement_list
+		RBRACE
 	;
 
 statement_list
@@ -170,16 +170,16 @@ if_statement
 	;
 
 expr
-	: expr_assignment
+	: expr_assignment	
 	;
 
 lvalue
 	: NAME
-		{ $$ = b_expr_autovar($1); }
+		{ $$ = B_expr_lvalue($1); }
 	| MULT expr_unary %prec USTAR
-		{ $$ = $2; }
+		{ $$ = B_expr_deref($2); }
 	| expr_postfix LBRACKET expr RBRACKET
-		{ $$ = b_expr_array($1, $3); }
+		{ $$ = B_expr_subscript($1, $3); }
 	;
 
 expr_assignment
@@ -252,11 +252,11 @@ expr_multiplicative
 expr_unary
 	: expr_postfix
 	| AND expr_postfix %prec UAMP
-		{ $$ = $2; }
+		{ $$ = B_expr_addrof($2); }
 	| MINUS expr_unary %prec UMINUS
-		{ $$ = $2; }
+		{ $$ = B_expr_negate($2); }
 	| NOT expr_unary %prec UNOT
-		{ $$ = $2; }
+		{ $$ = B_expr_invert($2); }
 	;
 
 expr_postfix
@@ -268,14 +268,14 @@ expr_postfix
 
 expr_builtin
 	: F_CHAR LPAREN expr COMMA expr RPAREN
-		{ $$ = b_builtin_char($3, $5); }
+		{ $$ = B_builtin_char($3, $5); }
 	| F_LCHAR LPAREN expr COMMA expr COMMA expr RPAREN
-		{ $$ = b_builtin_lchar($3, $5, $7); }
+		{ $$ = B_builtin_lchar($3, $5, $7); }
 	;
 
 expr_primary
 	: NAME
-		{ $$ = b_expr_autovar($1); }
+		{ $$ = B_expr_variable($1); }
 	| constant
 	| LPAREN expr RPAREN
 		{ $$ = $2; }
@@ -288,11 +288,11 @@ argument_list
 
 constant
 	:CONSTANT
-		{ $$ = b_expr_constant(CONSTANT_INT, $1, NULL); }
+		{ $$ = B_expr_constant($1); }
 	|STR_CONSTANT
-		{ $$ = b_expr_constant(CONSTANT_STR, 0, $1); }
+		{ $$ = B_expr_string($1); }
 	|CHAR_CONSTANT
-		{ $$ = b_expr_constant(CONSTANT_CHR, 0, $1); }
+		{ $$ = B_expr_char($1); }
 	;
 
 %%
@@ -310,13 +310,8 @@ int main(int argc, char **argv)
 			return (1);
 		}
 	}
-
-	BCompiler	compiler = {0};
-
 	int result = yyparse();
-
 	yylex_destroy();
-	
 	return result;
 }
 
