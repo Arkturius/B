@@ -47,9 +47,9 @@ const char	*next_file(void)
 		dp = opendir(RESOURCE_DIR);
 	if (dp)
 	{
-		do {
-			ep = readdir(dp);
-		} while (ep && ep->d_type != DT_REG);
+		do { ep = readdir(dp); }
+		while (ep && ep->d_type != DT_REG);
+		
 		if (!ep)
 		{
 			closedir(dp);

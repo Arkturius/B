@@ -20,9 +20,11 @@ CHAR        [^\n'\\]|\\[\\'\"nrtbf0]
 "else"		return ELSE;
 "switch"	return SWITCH;
 "case"		return CASE;
+"default"	return DEFAULT;
 "while"		return WHILE;
 "return"	return RETURN;
 "goto"		return GOTO;
+"break"		return BREAK;
 
 "char"		return F_CHAR;
 "lchar"		return F_LCHAR;
@@ -49,11 +51,14 @@ CHAR        [^\n'\\]|\\[\\'\"nrtbf0]
 ">="		return GE;
 "<<"		return LSHIFT;
 ">>"		return RSHIFT;
+"++"		return INCR;
+"--"		return DECR;
 
 "="			return ASSIGN;
 "!"			return NOT;
 "&"			return AND;
 "|"			return OR;
+"^"			return XOR;
 
 "<"			return LT;
 ">"			return GT;

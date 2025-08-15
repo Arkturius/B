@@ -24,5 +24,5 @@ main:
     .long   ".rostr000" + 4
 	.string "Hello World\n"
 .rostr000e:
-.set rostr000s, .rostr000e - .rostr000
+.set rostr000s, .rostr000e - .rostr000 - 5
 

@@ -32,7 +32,7 @@
 %token<s>	STR_CONSTANT
 %token<s>	NAME
 
-%token		AUTO EXTERN WHILE RETURN IF ELSE SWITCH CASE GOTO
+%token		AUTO EXTERN WHILE RETURN IF ELSE SWITCH CASE DEFAULT BREAK GOTO
 %token		F_CHAR F_LCHAR
 %token		SEMI COMMA
 %token		LPAREN RPAREN LBRACE RBRACE LBRACKET RBRACKET
@@ -43,11 +43,12 @@
 %token		ASSIGN_LSHIFT ASSIGN_RSHIFT
 %token		ASSIGN_OR ASSIGN_AND
 %token		ASSIGN_PLUS ASSIGN_MINUS ASSIGN_MULT ASSIGN_DIV ASSIGN_MOD
-%token		OR
+%token		OR XOR
 %token		AND NOT
 %token		EQ NE
 %token		LT LE GT GE
 %token		LSHIFT RSHIFT
+%token		INCR DECR
 %token		PLUS MINUS
 %token		MULT DIV MOD
 
@@ -57,6 +58,7 @@
 %right		ASSIGN_OR ASSIGN_AND
 %right		ASSIGN_PLUS ASSIGN_MINUS ASSIGN_MULT ASSIGN_DIV ASSIGN_MOD
 %left		OR
+%left		XOR
 %left		AND NOT
 %left		EQ NE
 %left		LT LE GT GE
@@ -64,17 +66,20 @@
 %left		PLUS MINUS
 %left		MULT DIV MOD
 
-%right		UMINUS UAMP USTAR UNOT
+%right		UMINUS UAMP USTAR UNOT UINCR UDECR
 %left		POSTFIX
 
 %nonassoc	LOWER_THAN_ELSE
 %nonassoc	ELSE
+
+%type<s>	param
 
 %type<e>	expr
 %type<e>	lvalue
 %type<e>	expr_assignment
 %type<e>	expr_conditional
 %type<e>	expr_logical_or
+%type<e>	expr_logical_xor
 %type<e>	expr_logical_and
 %type<e>	expr_equality
 %type<e>	expr_relational
@@ -106,7 +111,10 @@ definition
 	;
 
 function
-	: NAME LPAREN param_list_opt RPAREN compound_statement
+	: NAME
+		{ B_function($1); }
+	  LPAREN param_list_opt RPAREN compound_statement
+		{ B_function_end($1); }
 	;
 
 param_list_opt
@@ -115,8 +123,10 @@ param_list_opt
 	;
 
 param_list
-	: param_list COMMA param
-	| param
+	: param
+		{ B_function_param($1); }
+	| param_list COMMA param
+		{ B_function_param($3); }
 	;
 
 param
@@ -124,9 +134,10 @@ param
 	;
 
 compound_statement
-	: LBRACE 
+	: LBRACE RBRACE
+	| LBRACE 
 		statement_list
-		RBRACE
+	  RBRACE
 	;
 
 statement_list
@@ -141,7 +152,9 @@ statement
 	| if_statement
 	| WHILE LPAREN expr RPAREN statement
 	| RETURN LPAREN expr RPAREN SEMI
+		{ B_expr_return($3); }
 	| RETURN SEMI
+		{ B_return(); }
 	| SEMI
 	| compound_statement
 	;
@@ -165,8 +178,12 @@ extrn_decl
 	;
 
 if_statement
-	: IF LPAREN expr RPAREN statement %prec LOWER_THAN_ELSE
-	| IF LPAREN expr RPAREN statement ELSE statement
+	: IF LPAREN expr RPAREN statement 
+		{ B_if_block($3); B_if_end(); } %prec LOWER_THAN_ELSE
+	| IF LPAREN expr RPAREN statement ELSE 
+		{ B_if_else_block($3); }
+	  statement
+		{ B_if_end(); }
 	;
 
 expr
@@ -185,68 +202,107 @@ lvalue
 expr_assignment
 	: expr_conditional
 	| lvalue ASSIGN expr_assignment
+		{ $$ = B_assign(ASSIGN, $1, $3); }
     | lvalue ASSIGN_PLUS expr_assignment
+		{ $$ = B_assign(ASSIGN_PLUS, $1, $3); }
     | lvalue ASSIGN_MINUS expr_assignment
+		{ $$ = B_assign(ASSIGN_MINUS, $1, $3); }
     | lvalue ASSIGN_MULT expr_assignment
+		{ $$ = B_assign(ASSIGN_MULT, $1, $3); }
     | lvalue ASSIGN_DIV expr_assignment
+		{ $$ = B_assign(ASSIGN_DIV, $1, $3); }
     | lvalue ASSIGN_MOD expr_assignment
+		{ $$ = B_assign(ASSIGN_MOD, $1, $3); }
     | lvalue ASSIGN_AND expr_assignment
+		{ $$ = B_assign(ASSIGN_AND, $1, $3); }
     | lvalue ASSIGN_OR expr_assignment
+		{ $$ = B_assign(ASSIGN_OR, $1, $3); }
     | lvalue ASSIGN_LT expr_assignment
+		{ $$ = B_assign(ASSIGN_LT, $1, $3); }
     | lvalue ASSIGN_GT expr_assignment
+		{ $$ = B_assign(ASSIGN_GT, $1, $3); }
     | lvalue ASSIGN_LE expr_assignment
+		{ $$ = B_assign(ASSIGN_LE, $1, $3); }
     | lvalue ASSIGN_GE expr_assignment
+		{ $$ = B_assign(ASSIGN_GE, $1, $3); }
     | lvalue ASSIGN_EQ expr_assignment
+		{ $$ = B_assign(ASSIGN_EQ, $1, $3); }
     | lvalue ASSIGN_NE expr_assignment
+		{ $$ = B_assign(ASSIGN_NE, $1, $3); }
     | lvalue ASSIGN_LSHIFT expr_assignment
+		{ $$ = B_assign(ASSIGN_LSHIFT, $1, $3); }
     | lvalue ASSIGN_RSHIFT expr_assignment
+		{ $$ = B_assign(ASSIGN_RSHIFT, $1, $3); }
     ;
 
 expr_conditional
 	: expr_logical_or
 	| expr_logical_or QUESTION expr COLON expr_conditional
+		{ $$ = B_logic_ternary($1, $3, $5); }
 	;
 
 expr_logical_or
+	: expr_logical_xor
+	| expr_logical_or OR expr_logical_xor
+		{ $$ = B_logic_or($1, $3); }
+	;
+
+expr_logical_xor
 	: expr_logical_and
-	| expr_logical_or OR expr_logical_and
+	| expr_logical_xor XOR expr_logical_and
+		{ $$ = B_logic_xor($1, $3); }
 	;
 
 expr_logical_and
 	: expr_equality
 	| expr_logical_and AND expr_equality
+		{ $$ = B_logic_and($1, $3); }
 	;
 
 expr_equality
 	: expr_relational
 	| expr_equality EQ expr_relational
+		{ $$ = B_comp_equal($1, $3); }
 	| expr_equality NE expr_relational
+		{ $$ = B_comp_not_equal($1, $3); }
 	;
 
 expr_relational
 	: expr_shift
 	| expr_relational LT expr_shift
+		{ $$ = B_comp_lower_than($1, $3); }
 	| expr_relational LE expr_shift
+		{ $$ = B_comp_lower_equal($1, $3); }
 	| expr_relational GT expr_shift
+		{ $$ = B_comp_greater_than($1, $3); }
 	| expr_relational GE expr_shift
+		{ $$ = B_comp_greater_equal($1, $3); }
 	;
 
 expr_shift
 	: expr_additive
 	| expr_shift LSHIFT expr_additive
+		{ $$ = B_op_shl($1, $3); }
 	| expr_shift RSHIFT expr_additive
+		{ $$ = B_op_shr($1, $3); }
+	;
 
 expr_additive
 	: expr_multiplicative
 	| expr_additive PLUS expr_multiplicative
+		{ $$ = B_op_add($1, $3); }
 	| expr_additive MINUS expr_multiplicative
+		{ $$ = B_op_sub($1, $3); }
 	;
 
 expr_multiplicative
 	: expr_unary
 	| expr_multiplicative MULT expr_unary
+		{ $$ = B_op_mul($1, $3); }
 	| expr_multiplicative DIV expr_unary
+		{ $$ = B_op_div($1, $3); }
 	| expr_multiplicative MOD expr_unary
+		{ $$ = B_op_mod($1, $3); }
 	;
 
 expr_unary
@@ -257,13 +313,23 @@ expr_unary
 		{ $$ = B_expr_negate($2); }
 	| NOT expr_unary %prec UNOT
 		{ $$ = B_expr_invert($2); }
+	| INCR expr_unary
+		{ $$ = B_expr_pre_incr($2); }
+	| DECR expr_unary
+		{ $$ = B_expr_pre_decr($2); }
 	;
 
 expr_postfix
 	: expr_primary
 	| expr_builtin
+	| expr_postfix INCR
+		{ $$ = B_expr_incr($1); }
+	| expr_postfix DECR
+		{ $$ = B_expr_decr($1); }
 	| expr_postfix LPAREN argument_list RPAREN
+		{ $$ = B_function_call($1); }
 	| expr_postfix LPAREN RPAREN
+		{ $$ = B_function_call($1); }
 	;
 
 expr_builtin
@@ -276,14 +342,16 @@ expr_builtin
 expr_primary
 	: NAME
 		{ $$ = B_expr_variable($1); }
-	| constant
 	| LPAREN expr RPAREN
 		{ $$ = $2; }
+	| constant
 	;
 
 argument_list
 	: expr
+		{ B_function_arg($1); }
 	| argument_list COMMA expr
+		{ B_function_arg($3); }
 	;
 
 constant
@@ -301,6 +369,8 @@ constant
 
 int main(int argc, char **argv)
 {
+	B_compiler_start(&bcp);
+
 	if (argc > 1)
 	{
 		yyin = fopen(argv[1], "r");
@@ -311,7 +381,11 @@ int main(int argc, char **argv)
 		}
 	}
 	int result = yyparse();
+	
+	fclose(yyin);
 	yylex_destroy();
+	B_compiler_stop(&bcp);
+
 	return result;
 }
 

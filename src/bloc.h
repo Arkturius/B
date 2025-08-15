@@ -11,6 +11,7 @@
 # define	BLOC_FOREACH(_type, _it, _bloc) \
 	for (_type *_it = _bloc.bloc; _it < _bloc.bloc + _bloc.count; ++_it)
 
+# define	BLOC_MIN_SIZE	8
 # define	BLOC_MAX_SIZE	65536
 
 #endif // _BLOC_H
@@ -22,14 +23,21 @@
 	do { \
 		if (_bloc.size << 1 > BLOC_MAX_SIZE) \
 			abort(); \
-		if (_bloc.count + 1 == _bloc.size) \
-			_bloc.bloc = realloc(_bloc.bloc, _bloc.size << 1); \
+		if (_bloc.size == 0) \
+			_bloc.bloc = realloc(_bloc.bloc, BLOC_MIN_SIZE * sizeof *_bloc.bloc); \
+		else if ( _bloc.count + 1 == _bloc.size) \
+			_bloc.bloc = realloc(_bloc.bloc, (_bloc.size << 1) * sizeof *_bloc.bloc); \
 	} while (0)
+
+# define	BLOC_DESTROY(_bloc) \
+	do { \
+		free(_bloc.bloc); \
+	} while (0);
 
 # define	BLOC_APPEND(_bloc, _e) \
 	do { \
 		BLOC_REALLOC(_bloc); \
-		_bloc.bloc[_bloc.count++] = e; \
+		_bloc.bloc[_bloc.count++] = _e; \
 	} while (0);
 
 # define	BLOCK_POP(_bloc, _n) \

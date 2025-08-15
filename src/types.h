@@ -33,6 +33,8 @@ typedef double		f64;
  * Compiler specific types.
  */
 
+# define	WORD_SIZE	4
+
 typedef const char	*String;
 typedef u32			StringIdx;
 typedef u32			Size;

@@ -1,4 +1,1 @@
-main()
-{
-	return;
-}
+main() { return; }
