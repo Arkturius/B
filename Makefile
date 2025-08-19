@@ -33,8 +33,14 @@ PARSER_SRC	:=	$(SRC_DIR)/$(PARSER_NAME).y
 PARSER_OUT	:=	$(OBJ_DIR)/$(PARSER_NAME)
 PARSER		:=	$(PARSER_OUT).c
 
+CFLAGS		:=	-Wall -Wextra -Wno-return-type -Wno-unused-parameter -Wno-override-init
+
 ifeq ($(VERBOSE), 1)
 	CFLAGS	+=	-DB_VERBOSE
+endif
+
+ifeq ($(DEBUG), 1)
+	CFLAGS	+=	-DB_DEBUG
 endif
 
 all:		$(NAME)
@@ -44,7 +50,7 @@ nix:
 
 $(NAME):	$(PARSER) $(LEXER) $(SRCS)
 	@echo " ■  building	$@"
-	@$(CC) $(CFLAGS) $^ -o $@ -I$(SRC_DIR) -g
+	@$(CC) $(CFLAGS) $^ -o $@ -I$(SRC_DIR) -I$(OBJ_DIR) -g
 
 parser:		$(PARSER)
 

@@ -97,4 +97,18 @@ strtab_get(Strtab tab, StringIdx idx)
 	return (String)(tab + idx);
 }
 
+StringIdx
+strtab_index(Strtab tab, String str)
+{
+	StrtabHdr	*hdr = TO_HDR(tab);
+
+    for (StringIdx i = 0; i < hdr->size; ++i)
+    {
+        if (tab[i] != *str)
+            continue ;
+        if (!strcmp(str, tab + i))
+            return (i);
+    }
+}
+
 #endif

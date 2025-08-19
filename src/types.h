@@ -38,10 +38,29 @@ typedef double		f64;
 typedef const char	*String;
 typedef u32			StringIdx;
 typedef u32			Size;
+typedef i32         Offset;
 
-typedef struct s_expr
+typedef enum    _b_expr_type
 {
-	u32 type;
+    B_EXPR_IMMEDIATE,
+    B_EXPR_REGISTER,
+    B_EXPR_VARIABLE,
+    B_EXPR_FUNCTION,
+    B_EXPR_ROSTRING,
+}   ExprType;
+
+typedef struct  _b_expr
+{
+	ExprType    type;
+    union
+    {
+        String  reg;
+        String  name;
+        u64     imm;
+        Offset  off;
+        void    *ptr;
+    };
+    bool        lval;
 }	Expr;
 
 #endif // _TYPES_H

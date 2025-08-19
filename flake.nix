@@ -15,7 +15,6 @@
 				{
 					packages =
 					[
-						pkgs.qemu
 						pkgs.coreutils
 						pkgs.flex
 						pkgs.bison
