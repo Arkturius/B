@@ -6,9 +6,13 @@ NAME		:=	B
 
 COMP_SCRIPT	:=	bcomp.sh
 
-SRCS		:=	
+SRCS		:=	b.c 		\
+				bcontext.c	\
+				bsymbol.c	\
+				bdecl.c
 
 SRC_DIR		:=	src
+INC_DIR		:=	include
 OBJ_DIR		:=	build
 
 SRCS		:=	$(addprefix $(SRC_DIR)/, $(SRCS))
@@ -50,7 +54,7 @@ nix:
 
 $(NAME):	$(PARSER) $(LEXER) $(SRCS)
 	@echo " ■  building	$@"
-	@$(CC) $(CFLAGS) $^ -o $@ -I$(SRC_DIR) -I$(OBJ_DIR) -g
+	@$(CC) $(CFLAGS) $^ -o $@ -I$(INC_DIR) -I$(OBJ_DIR) -g
 
 parser:		$(PARSER)
 
@@ -65,9 +69,6 @@ $(LEXER):	$(LEXER_SRC)
 	@mkdir -p $(@D)
 	@echo " ■  building	lexer"
 	@flex --outfile=$(LEXER) $< 
-
-caca:
-	@make PARSER_NAME="gasparser" LEXER_NAME="gaslexer"
 
 clean:
 	@if [ -d $(OBJ_DIR) ]; then \

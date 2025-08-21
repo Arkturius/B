@@ -1,5 +1,5 @@
 /**
- * B compiler main header.
+ * B compiler
  */
 
 #ifndef _BCOMPILER_H
@@ -7,228 +7,36 @@
 
 # include <stdarg.h>
 # include <bparser.h>
+# include <stdio.h>
 
-# include <types.h>
-# include <strtab.h>
-# include <bloc.h>
+# include <btypes.h>
+# include <bcontext.h>
 # include <codegen.h>
 
 int yyerror(const char *s);
-
-void
-B_program_start(void);
-
-void
-B_program_stop(void);
-
-void	
-B_rodata(void);
-
-
-void
-B_function(String name);
-
-void
-B_function_param(String name);
-
-void
-B_function_arg(Expr a);
-
-Expr
-B_function_call(Expr f);
-
-void
-B_if_block(Expr cond);
-
-void
-B_if_else_block(Expr cond);
-
-void
-B_if_end(void);
-
-Expr
-B_assign(u32 type, Expr lhs, Expr rhs);
-
-Expr
-B_logic_ternary(Expr cond, Expr yes, Expr no);
-
-Expr
-B_logic_or(Expr a, Expr b);
-
-Expr
-B_logic_and(Expr a, Expr b);
-
-Expr
-B_logic_xor(Expr a, Expr b);
-
-Expr
-B_comp_equal(Expr a, Expr b);
-
-Expr
-B_comp_not_equal(Expr a, Expr b);
-
-Expr
-B_comp_lower_than(Expr a, Expr b);
-
-Expr
-B_comp_lower_equal(Expr a, Expr b);
-
-Expr
-B_comp_greater_than(Expr a, Expr b);
-
-Expr
-B_comp_greater_equal(Expr a, Expr b);
-
-Expr
-B_op_shl(Expr x, Expr n);
-
-Expr
-B_op_shr(Expr x, Expr n);
-
-Expr
-B_op_add(Expr a, Expr b);
-
-Expr
-B_op_sub(Expr a, Expr b);
-
-Expr
-B_op_mul(Expr a, Expr b);
-
-Expr
-B_op_div(Expr a, Expr b);
-
-Expr
-B_op_mod(Expr a, Expr b);
-
-
-Expr
-B_expr_constant(i64 number);
-
-Expr
-B_expr_string(String str);
-
-Expr
-B_expr_char(String str);
-
-Expr
-B_expr_variable(String var);
-
-Expr
-B_expr_lvalue(String var);
-
-Expr
-B_expr_deref(Expr ptr);
-
-Expr
-B_expr_subscript(Expr arr, Expr idx);
-
-Expr
-B_expr_addrof(Expr var);
-
-Expr
-B_expr_negate(Expr var);
-
-Expr
-B_expr_invert(Expr var);
-
-Expr
-B_expr_incr(Expr var);
-
-Expr
-B_expr_pre_incr(Expr var);
-
-Expr
-B_expr_pre_decr(Expr var);
-
-Expr
-B_expr_decr(Expr var);
-
-
-Expr
-B_builtin_char(Expr str, Expr idx);
-
-Expr
-B_builtin_lchar(Expr str, Expr idx, Expr chr);
-
-
-typedef enum
-{
-	BCP_INIT	= 1 << 0,
-}	CompilerFlags;
-
-typedef enum b_symbol_type
-{
-	SYM_VAR_STACK,
-    SYM_ARG_STACK,
-    SYM_FUNCTION,
-}	SymbolType;
-
-typedef struct b_symbol
-{
-    SymbolType	type;
-	StringIdx	name;
-    Offset      off;
-}	Symbol;
-
-BLOC_DECL(Symbol);
-
-typedef struct b_rostring
-{
-	StringIdx	text;
-	StringIdx	name;
-}	RoString;
-
-BLOC_DECL(RoString);
-
-typedef struct b_compiler
-{
-	u32			flags;
-
-	Symbols		symtab;
-	RoStrings	rostrings;
-
-	StringIdx	function;
-    u32         argidx;
-    StringIdx   loop;
-    u32         loopidx;
-
-	Strtab		symbols;
-	Strtab		rodata;
-    Strtab      labels;
-}	Compiler;
-
-extern Compiler	bcp;
 
 #endif // _BCOMPILER
 
 #define BCOMPILER_IMPLEMENTATION
 #if defined(BCOMPILER_IMPLEMENTATION)
 
-# include <stdio.h>
-
-# define STRTAB_IMPLEMENTATION
-# include <strtab.h>
-
 # define BLOC_IMPLEMENTATION
 # include <bloc.h>
 
-Compiler	bcp = {0};
-char		btmp[1024] = {0};
-
-# define	ONCE(X)		do { X } while (0)
+BCompiler	B = {0};
 
 # define    B_FILEINFO  B_sprintf("%s:%s:%d", __func__, __FILE__, __LINE__)
 
 # if defined(B_DEBUG)
 #  define	B_ERROR(X)		\
-	ONCE( \
+	do { \
         dprintf(2, "[ERROR] %s - %s\n", B_FILEINFO, (X)); \
         abort(); \
-    )
+    while (0)
 #  define	B_WARNING(X)	\
-	ONCE(dprintf(2, "[WARN!] %s - %s\n", B_FILEINFO, (X));)
+	dprintf(2, "[WARN!] %s - %s\n", B_FILEINFO, (X));
 #  define	B_LOG(X, ...)	\
-	ONCE(dprintf(2, "[DEBUG] "X"\n", ##__VA_ARGS__);)
+	dprintf(2, "[DEBUG] "X"\n", ##__VA_ARGS__);
 #  define    DUMP_EXPR(_e)  \
     printf("(Expr) { .type = %d, .data = 0x%-16lx, .lval = %d }\n", _e.type, _e.imm, _e.lval);
 # else
@@ -241,58 +49,20 @@ char		btmp[1024] = {0};
 String
 B_sprintf(const char *fmt, ...)
 {
+    static char btmp[1024] = {0};
 	va_list	ap;
 
 	va_start(ap, fmt);
-	vsprintf(btmp, fmt, ap);
+	vsnprintf(btmp, sizeof(btmp), fmt, ap);
 	va_end(ap);
 
 	return btmp;
 }
 
-bool
-B_compiler_start(Compiler *cp)
-{
-	B_LOG("Compilation start.");
-
-	cp->flags = BCP_INIT;
-
-	cp->symbols = strtab_init(4096);
-	if (!cp->symbols)
-	{
-		B_WARNING("symbols strtab allocation");
-		return false;
-	}
-	cp->rodata = strtab_init(4096);
-	if (!cp->rodata)
-	{
-		B_WARNING("rodata strtab allocation");
-		return false;
-	}
-	cp->labels = strtab_init(4096);
-	if (!cp->labels)
-	{
-		B_WARNING("labels strtab allocation");
-		return false;
-	}
-
-	return true;
-}
-
 void
-B_compiler_stop(Compiler *cp)
+B_rodata(void)
 {
-	if (!cp)
-		return ;
 
-    CG_dump();
-
-	strtab_destroy(cp->symbols);
-	strtab_destroy(cp->rodata);
-	strtab_destroy(cp->labels);
-	BLOC_DESTROY(bcp.symtab);
-	
-	B_LOG("Compilation stop.");
 }
 
 void
@@ -312,79 +82,27 @@ B_program_stop(void)
 	B_rodata();
 }
 
-void
-B_rodata(void)
-{
-	B_LOG("%s", __func__);
-
-	BLOC_FOREACH(RoString, rs, bcp.rostrings)
-	{
-		String	name = strtab_get(bcp.symbols, rs->name);
-		String	text = strtab_get(bcp.symbols, rs->text);
-
-		CG_label(name);
-		CG_directive_long(WORD_SIZE, name);
-		CG_directive_string(text);
-
-		String	str_end = B_sprintf("%se", name);
-		CG_label(str_end);
-		CG_directive_set_len(name);
-	}
-}
-
-Offset
-B_param_offset(Size size)
-{
-	B_LOG("%s", __func__);
-
-    static Offset   off = 2 * WORD_SIZE;
-    Offset          tmp;
-
-    tmp = off;
-    if (size == 0)
-        off = 2 * WORD_SIZE;
-    else
-        off += size;
-    return (tmp);
-}
-
-Offset
-B_stack_offset(Size size)
-{
-	B_LOG("%s", __func__);
-
-    static Offset   off = -WORD_SIZE;
-    Offset          tmp;
-
-    tmp = off;
-    if (size == 0)
-        off = -WORD_SIZE;
-    else
-        off -= size;
-    return (tmp);
-}
-
-StringIdx
+u32
 B_symbol_new(String name, SymbolType type)
 {
-	B_LOG("%s", __func__);
-
-	StringIdx	idx = strtab_append(bcp.symbols, name);
-	Symbol		new = (Symbol)
-	{	
-		.name = idx,
-		.type = type,
-        .off = type == SYM_VAR_STACK
-            ? B_stack_offset(WORD_SIZE)
-            : type == SYM_ARG_STACK
-                ? B_param_offset(WORD_SIZE)
-                : 0
-	};
-
-    B_LOG("NEW SYMBOL: named '%s' at idx %d, type = %d, off = %d", name, idx, type, new.off);
-	BLOC_APPEND(bcp.symtab, new);
-	free((void *)name);
-    return (idx);
+// 	B_LOG("%s", __func__);
+// 
+// 	StringIdx	idx = strtab_append(bcp.symbols, name);
+// 	Symbol		new = (Symbol)
+// 	{	
+// 		.name = idx,
+// 		.type = type,
+//         .off = type == SYM_VAR_STACK
+//             ? (bcp.auto_count + 1) * WORD_SIZE
+//             : type == SYM_ARG_STACK
+//                 ? (bcp.args_count + 2) * WORD_SIZE
+//                 : 0
+// 	};
+// 
+//     B_LOG("NEW SYMBOL: named '%s' at idx %d, type = %d, off = %d", name, idx, type, new.off);
+// 	BLOC_APPEND(bcp.symtab, new);
+// 	free((void *)name);
+//     return (idx);
 }
 
 // TODO : drop 'count' symbols at the end of a scope. making them "disappear" from context
@@ -434,8 +152,8 @@ B_function_end()
 	CG_label(end_label);
 	CG_function_stop();
 
-    B_param_offset(0);
-    B_stack_offset(0);
+    bcp.auto_count = 0;
+    bcp.args_count = 0;
 }
 
 void
@@ -444,6 +162,7 @@ B_function_param(String name)
 	B_LOG("%s", __func__);
 
     B_symbol_new(name, SYM_ARG_STACK);
+    bcp.args_count++;
 }
 
 void
@@ -452,31 +171,31 @@ B_function_arg(Expr a)
 	B_LOG("%s", __func__);
 
     Register    reg = NULL;
+    Offset      off = bcp.call_count * WORD_SIZE;
 
     switch (a.type)
     {
         case B_EXPR_VARIABLE:
             reg = CG_register_alloc();
             CG_load_var(reg, a.off);
-            CG_store_arg_register(bcp.argidx * WORD_SIZE, reg);
-            break ;
+            a.reg = reg;
+        /* fallthrough */
         case B_EXPR_REGISTER:
-            reg = a.reg;
-            CG_store_arg_register(bcp.argidx * WORD_SIZE, reg);
+            CG_store_arg_register(off, a.reg);
             break ;
         case B_EXPR_IMMEDIATE:
-            CG_store_arg_immediate(bcp.argidx * WORD_SIZE, a.imm);
+            CG_store_arg_immediate(off, a.imm);
             break ;
         case B_EXPR_ROSTRING:
         case B_EXPR_FUNCTION:
-            CG_store_arg_register(bcp.argidx, a.name);
+            CG_store_arg_register(off, a.name);
             break ;
         default:
             B_ERROR("unreachable code path.");
     }
     if (reg)
         CG_register_free(reg);
-    bcp.argidx++;
+    bcp.call_count++;
 }
 
 Expr
@@ -511,6 +230,7 @@ B_auto_var(String name)
 	B_LOG("%s", __func__);
 
     B_symbol_new(name, SYM_VAR_STACK);
+    bcp.auto_count++;
 }
 
 void
@@ -518,9 +238,7 @@ B_auto_decl(void)
 {
 	B_LOG("%s", __func__);
 
-    Offset  total = B_stack_offset(0);
-
-    CG_stack_sub(-(total + WORD_SIZE));
+    CG_stack_sub(bcp.auto_count * WORD_SIZE);
 }
 
 void
@@ -678,26 +396,6 @@ B_assign(u32 type, Expr lhs, Expr rhs)
 Expr
 B_ternary(Expr cond, Expr yes, Expr no) {}
 
-
-// TODO : Fold this into a big B_binary_op(a, b)
-//
-//  Each of B_expr will be a B_Binop chosen at runtime by BINOP_TYPE
-//  Factor out IMM/IMM operations -> constant folding
-//  Then redirect to corresponding function
-//
-// B_UnaryOp   B_UnaryOps[] = 
-// {
-//     B_op_deref,
-//     B_op_subscript,
-//     B_op_addrof,
-//     B_op_negate,
-//     B_op_invert,
-//     B_op_incr,
-//     B_op_decr,
-//     B_op_pre_decr,
-//     B_op_pre_incr,
-// };
-
 # define    B_OP_BINARY(_op)    Expr B_binary_##_op(Expr a, Expr b)
 # define    B_OP_UNARY(_op)     Expr B_unary_##_op(Expr a)
 # define    B_OP_COMP(_op)      Expr B_comp_##_op(Expr a, Expr b)
@@ -771,6 +469,8 @@ B_OP_BINARY(add)
                 CG_add_reg_reg(reg, b.reg);
             return ((Expr){ .type = B_EXPR_REGISTER, .reg = reg });
         }
+        case B_EXPR_IMMEDIATE:
+            return ((Expr){ .type = B_EXPR_IMMEDIATE, .imm = a.imm + b.imm });
         default:
             break ;
     }
@@ -1117,8 +817,6 @@ B_builtin_char(Expr str, Expr idx)
 
 Expr
 B_builtin_lchar(Expr str, Expr idx, Expr chr) {}
-
-
 
 #endif // BCOMPILER_IMPLEMENTATION
 

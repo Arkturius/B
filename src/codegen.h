@@ -6,11 +6,10 @@
 # define _CODEGEN_H
 
 # include <stdio.h>
-#include <stdlib.h>
 # include <string.h>
 # include <stdarg.h>
 
-# include <types.h>
+# include <btypes.h>
 # include <bloc.h>
 
 # define	EAX	"eax"
@@ -171,8 +170,6 @@ CG_register_alloc()
     else
         regs.bloc[idx] = name;
 
-    printf("---- Allocated register [ %s ]\n", name);
-
     return (name);
 }
 
@@ -186,7 +183,6 @@ CG_register_free(String name)
         if (!strcmp(*reg, name))
         {
             *reg = NULL;
-            printf("----     freed register [ %s ]\n", name);
             return ;
         }
     }
@@ -747,23 +743,6 @@ CG_subscript_reg(Register arr, Register reg)
 void
 CG_function_call(String name)
 {
-    bool    used[3] = {0};
-
-    BLOC_FOREACH(Register, reg, regs)
-    {
-        if (!*reg)
-            continue ;
-        for (Size i = 0; i < 3; ++i)
-        {
-            if (strcmp(*reg, x86REGS[i]))
-                continue ;
-            CG_instr(CG_INSTR_PUSH, .op1 = OP_REG(x86REGS[i]));
-            CG_register_free(*reg);
-            used[i] = true;
-            break ;
-        }
-    }
-
     CG_instr(
         CG_INSTR_CALL,
         .op1 = OP_LBL(name),
