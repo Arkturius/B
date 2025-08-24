@@ -4,14 +4,15 @@
 
 #include <unistd.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
 #define B_NO_PREFIX
 #include <btypes.h>
 #include <bcontext.h>
 #include <bsymbol.h>
 #include <bdecl.h>
+#include <bcodegen.h>
+
+#include <b_i386.h>
 
 extern int  yylex();
 extern int  yylex_destroy(void);
@@ -34,13 +35,15 @@ main(int argc, char **argv)
     if (argc)
         yyin = fopen(SHIFT_ARGS(argc, argv), "r");
     else
-        B_warning("no input file provided. switching to stdin");
+        B_warning("no input file. switching to stdin");
+
     if (!yyin)
     {
         B_error("can't open file '%s'", argv[1]);
         return (1);
     }
 
+    C_builder_start(i386_setup);
     ret = yyparse();
 	fclose(yyin);
 

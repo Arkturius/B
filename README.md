@@ -16,12 +16,12 @@ There are a few rules about how the compiling stage should be done.
 of AST.
 - The input language is B as defined by Thompson’s technical memo with the following additions/exceptions:
 
- - Internal declaration (reference to a variable not declared as external or automatic) are treated as label declarations.
- - Labels are in the same namespace as other symbols.
- - Since B doesn’t have any type, there is no way to distinguish a function from
- an int, this is why all function call are made by pointer and the symbol of a
- function must designate a pointer to the function. For example, the function
- f() return (42); could be defined as follow:
+- Internal declaration (reference to a variable not declared as external or automatic) are treated as label declarations.
+- Labels are in the same namespace as other symbols.
+- Since B doesn’t have any type, there is no way to distinguish a function from
+an int, this is why all function call are made by pointer and the symbol of a
+function must designate a pointer to the function. For example, the function
+f() return (42); could be defined as follow:
 ```asm
 f:
 .long f + 4
@@ -30,13 +30,22 @@ f:
   leave
   ret
 ```
- - B was originally created for the PDP-11 computer which have word addressing
- while i386 uses byte addressing, to address this problem you must translate
- the expression a[b] as \*(a + 4 \* b) instead of \*(a + b)
- - argc, argv and envp can be passed to the main in the same way as in C
- - You can do character/string literal parsing as in C (with \ as escape char
- instead of \*)
+- B was originally created for the PDP-11 computer which have word addressing
+while i386 uses byte addressing, to address this problem you must translate
+the expression a[b] as \*(a + 4 \* b) instead of \*(a + b)
+- argc, argv and envp can be passed to the main in the same way as in C
+- You can do character/string literal parsing as in C (with \ as escape char
+instead of \*)
 - There is a file brt0.o in attachment, this file contains the entrypoint for a b program
 and a function syscall that work the same way has the c function syscall(2)
 that will allow you to use syscalls in your B programs (using the extrn keyword to
 declare it).
+
+## Lexing
+
+## Parsing
+
+## Evaluation
+
+## Code Generation
+

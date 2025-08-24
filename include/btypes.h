@@ -36,9 +36,18 @@ typedef i32         Offset;
 # define    SHIFT_ARGS(ac, av)  (ac--, *av++)
 # define    UNUSED(_x)          (void)(_x)
 
-# define    B_log(_s, ...)      dprintf(2, "[B]     log: "_s"\n", ##__VA_ARGS__);
-# define    B_error(_s, ...)    dprintf(2, "[B]   error: "_s"\n", ##__VA_ARGS__);
-# define    B_warning(_s, ...)  dprintf(2, "[B] warning: "_s"\n", ##__VA_ARGS__);
+# define    B_log(_s, ...)                                              \
+    dprintf(2, "[B]     log: "_s"\n", ##__VA_ARGS__);
+
+# define    B_error(_s, ...)                                            \
+    dprintf(2, "[B]   error: "_s"\n", ##__VA_ARGS__);
+
+# define    B_warning(_s, ...)                                          \
+    dprintf(2, "[B] warning: "_s"\n", ##__VA_ARGS__);
+
+# define    _CONCAT(_a, _b) _a##_b
+# define    CONCAT(_a, _b)  _CONCAT(_a, _b)
+# define    STRINGIFY(_x)   #_x
 
 # define VEC_IMPLEMENTATION
 # include "vec.h"

@@ -32,11 +32,15 @@ typedef struct  b_compiler
 extern  BCompiler   B;
 
 # if defined(B_NO_PREFIX)
+#  define   tmp_sprintf         B_tmp_sprintf
 #  define   compiler_start      B_compiler_start
 #  define   compiler_stop       B_compiler_stop
 #  define   program_start       B_program_start
 #  define   program_stop        B_program_stop
 # endif
+
+char
+*B_tmp_sprintf(const char *fmt, ...);
 
 bool
 B_compiler_start(void);

@@ -9,7 +9,8 @@ COMP_SCRIPT	:=	bcomp.sh
 SRCS		:=	b.c 		\
 				bcontext.c	\
 				bsymbol.c	\
-				bdecl.c
+				bdecl.c		\
+				bcodegen.c	\
 
 SRC_DIR		:=	src
 INC_DIR		:=	include
@@ -77,6 +78,7 @@ clean:
 	fi
 
 fclean:			clean
+	@$(RM) $(NAME)
 	@if [ -f "$(PARSER)" ]; then \
 		echo " ■  deleted	parser"; \
 		$(RM) $(PARSER); \
