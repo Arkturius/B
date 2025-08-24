@@ -29,21 +29,21 @@ CHAR        [^\n'\\]|\\[\\'\"nrtbf0]
 "char"		return F_CHAR;
 "lchar"		return F_LCHAR;
 
-"==="		return ASSIGN_EQ;
-"=!="		return ASSIGN_NE;
-"=<="		return ASSIGN_LE;
-"=>="		return ASSIGN_GE;
-"=<<"		return ASSIGN_LSHIFT;
-"=>>"		return ASSIGN_RSHIFT;
-"=<"		return ASSIGN_LT;
-"=>"		return ASSIGN_GT;
-"=|"		return ASSIGN_OR;
-"=&"		return ASSIGN_AND;
-"=+"		return ASSIGN_PLUS;
-"=-"		return ASSIGN_MINUS;
-"=*"		return ASSIGN_MULT;
-"=/"		return ASSIGN_DIV;
-"=%"		return ASSIGN_MOD;
+"==="		{ yylval.n = ASSIGN_EQ; return ASSIGN_EQ; }
+"=!="		{ yylval.n = ASSIGN_NE; return ASSIGN_NE; }
+"=<="		{ yylval.n = ASSIGN_LE; return ASSIGN_LE; }
+"=>="		{ yylval.n = ASSIGN_GE; return ASSIGN_GE; }
+"=<<"		{ yylval.n = ASSIGN_LSHIFT; return ASSIGN_LSHIFT; }
+"=>>"		{ yylval.n = ASSIGN_RSHIFT; return ASSIGN_RSHIFT; }
+"=<"		{ yylval.n = ASSIGN_LT; return ASSIGN_LT; }
+"=>"		{ yylval.n = ASSIGN_GT; return ASSIGN_GT; }
+"=|"		{ yylval.n = ASSIGN_OR; return ASSIGN_OR; }
+"=&"		{ yylval.n = ASSIGN_AND; return ASSIGN_AND; }
+"=+"		{ yylval.n = ASSIGN_PLUS; return ASSIGN_PLUS; }
+"=-"		{ yylval.n = ASSIGN_MINUS; return ASSIGN_MINUS; }
+"=*"		{ yylval.n = ASSIGN_MULT; return ASSIGN_MULT; }
+"=/"		{ yylval.n = ASSIGN_DIV; return ASSIGN_DIV; }
+"=%"		{ yylval.n = ASSIGN_MOD; return ASSIGN_MOD; }
 
 "=="		return EQ;
 "!="		return NE;

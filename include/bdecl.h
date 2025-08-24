@@ -19,4 +19,14 @@ B_function_start(String name);
 void
 B_function_stop(void);
 
+void
+B_function_param(String name);
+
+
+void
+B_auto_decl();
+
+void
+B_auto_var(String name);
+
 #endif // _BDECL_H

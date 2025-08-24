@@ -11,6 +11,7 @@
 #include <bsymbol.h>
 #include <bdecl.h>
 #include <bcodegen.h>
+#include <bcontrol.h>
 
 #include <b_i386.h>
 

@@ -25,8 +25,43 @@ typedef enum    c_operand_type
     OP_LABEL,
 }   OperandType;
 
-typedef enum  c_instr_type
+typedef enum    c_binop_type
 {
+    BINOP_NULL,
+    BINOP_PLUS,
+    BINOP_MINUS,
+    BINOP_MULT,
+    BINOP_DIV,
+    BINOP_MOD,
+    BINOP_AND,
+    BINOP_OR,
+    BINOP_XOR,
+    BINOP_LT,
+    BINOP_GT,
+    BINOP_LE,
+    BINOP_GE,
+    BINOP_EQ,
+    BINOP_NE,
+    BINOP_LSHIFT,
+    BINOP_RSHIFT,
+}   BinopType;
+
+typedef enum    c_unop_type
+{
+    UNOP_NULL,
+    UNOP_NEGATE,
+    UNOP_ADDROF,
+    UNOP_DEREF,
+    UNOP_PRE_DECR,
+    UNOP_PRE_INCR,
+    UNOP_POST_DECR,
+    UNOP_POST_INCR,
+    UNOP_NOT,
+}   UnopType;
+
+typedef enum    c_instr_type
+{
+    INSTR_NULL,
     INSTR_MOVE,
     INSTR_LOAD,
     INSTR_STORE,
@@ -40,6 +75,7 @@ typedef enum  c_instr_type
     INSTR_XOR,
     INSTR_SHL,
     INSTR_SHR,
+    INSTR_CMP,
     INSTR_JMP,
     INSTR_JCC,
     INSTR_CALL,
@@ -50,21 +86,21 @@ typedef enum  c_instr_type
     INSTR_DIRECTIVE,
 }   InstrType;
 
-typedef enum    c_jump_type
+typedef enum    c_condition_type
 {
-    JUMP_E,
-    JUMP_L,
-    JUMP_B,
-    JUMP_G,
-    JUMP_A,
-    JUMP_C,
-    JUMP_NE,
-    JUMP_NL,
-    JUMP_NB,
-    JUMP_NG,
-    JUMP_NA,
-    JUMP_NC,
-}   JumpType;
+    COND_E,
+    COND_L,
+    COND_B,
+    COND_G,
+    COND_A,
+    COND_C,
+    COND_NE,
+    COND_NL,
+    COND_NB,
+    COND_NG,
+    COND_NA,
+    COND_NC,
+}   ConditionType;
 
 typedef enum    c_directive_type
 {
@@ -114,18 +150,20 @@ vec_decl(Instr);
 # define    BACK_FN_LIST(X)                                             \
     X(prologue)                                                         \
     X(epilogue)                                                         \
-    X(move,         Operand dst, Operand src)                           \
-    X(load,         Operand dst, Operand addr)                          \
-    X(store,        Operand addr, Operand src)                          \
-    X(op_bin,       InstrType type, Operand dst, Operand a, Operand b)  \
-    X(op_un,        InstrType type, Operand dst, Operand a)             \
-    X(jump,         Operand label)                                      \
-    X(jump_cc,      JumpType type, Operand label)                       \
-    X(call,         Operand func)                                       \
+    X(move,          Operand dst, Operand src)                          \
+    X(load,          Operand dst, Operand addr)                         \
+    X(store,         Operand addr, Operand src)                         \
+    X(op_bin,        BinopType type, Operand dst, Operand a, Operand b) \
+    X(op_un,         UnopType type, Operand dst, Operand a)             \
+    X(jump,          Operand label)                                     \
+    X(jump_cc,       ConditionType type, Operand label)                 \
+    X(call,          Operand func)                                      \
     X(ret)                                                              \
-    X(push,         Operand a)                                          \
-    X(pop,          Operand a)                                          \
-    X(directive,    DirectiveType type, Operand data)                   \
+    X(stack_reserve, Size size)                                         \
+    X(stack_release, Size size)                                         \
+    X(push,          Operand a)                                         \
+    X(pop,           Operand a)                                         \
+    X(directive,     DirectiveType type, Operand data)                  \
 
 # define    ASM_FN_POINTER(_name, ...)                                  \
     typedef void    (*CONCAT(FN_, _name))(ASMBackend *, ##__VA_ARGS__)
@@ -156,10 +194,19 @@ struct  c_asmbackend
 
 struct  c_register_pool
 {
-    VRegs   virtual;
+    VRegs   used_virtual;
+    VReg    next_virtual;
     Strings physical;
+    Strings used_physical;
     Offset  stack_used;
 };
+
+# if defined (B_NO_PREFIX)
+#  define   registers_set   C_registers_set
+#  define   builder_start   C_builder_start
+#  define   register_alloc  C_register_alloc
+#  define   register_free   C_register_free
+# endif
 
 bool
 C_registers_set(Size count, ...);
@@ -171,6 +218,12 @@ C_builder_start(FN_backend backend_setup);
 
 void
 C_builder_stop(void);
+
+Expr
+C_register_alloc();
+
+void
+C_register_free(Operand reg);
 
 typedef struct  c_codebuilder
 {
@@ -192,10 +245,27 @@ extern  CodeBuilder  C;
 # define	asm_jump_cc(...)   		C.back.asm_jump_cc(&C.back, ##__VA_ARGS__)
 # define	asm_call(...)   		C.back.asm_call(&C.back, ##__VA_ARGS__)
 # define	asm_ret(...)   			C.back.asm_ret(&C.back, ##__VA_ARGS__)
+# define    asm_stack_reserve(...)  C.back.asm_stack_reserve(&C.back, ##__VA_ARGS__)
+# define    asm_stack_release(...)  C.back.asm_stack_release(&C.back, ##__VA_ARGS__)
 # define	asm_push(...)   		C.back.asm_push(&C.back, ##__VA_ARGS__)
 # define	asm_pop(...)   			C.back.asm_pop(&C.back, ##__VA_ARGS__)
 # define	asm_directive(...)   	C.back.asm_directive(&C.back, ##__VA_ARGS__)
 # define	asm_dump(...)           C.back.asm_dump(&C.back, ##__VA_ARGS__)
+
+String
+op_type(OperandType t);
+
+String
+instr_type(InstrType t);
+
+String
+directive_type(DirectiveType t);
+
+void
+dump_operand(Operand op, bool is_directive);
+
+void
+dump_instr(Instr *ins);
 
 #endif // _BCODEGEN_H
 

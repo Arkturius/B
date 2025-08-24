@@ -16,6 +16,10 @@
     # include <bcontext.h>
     # include <bsymbol.h>
     # include <bdecl.h>
+    # include <bcontrol.h>
+    # include <bexpr.h>
+
+    bool    i386_dump(ASMBackend *back);
 %}
 
 %code requires
@@ -41,11 +45,11 @@
 %token		LPAREN RPAREN LBRACE RBRACE LBRACKET RBRACKET
 %token		QUESTION COLON
 
-%token		ASSIGN
-%token		ASSIGN_EQ ASSIGN_NE ASSIGN_LE ASSIGN_GE ASSIGN_LT ASSIGN_GT
-%token		ASSIGN_LSHIFT ASSIGN_RSHIFT
-%token		ASSIGN_OR ASSIGN_AND
-%token		ASSIGN_PLUS ASSIGN_MINUS ASSIGN_MULT ASSIGN_DIV ASSIGN_MOD
+%token<n>	ASSIGN
+%token<n>	ASSIGN_EQ ASSIGN_NE ASSIGN_LE ASSIGN_GE ASSIGN_LT ASSIGN_GT
+%token<n>	ASSIGN_LSHIFT ASSIGN_RSHIFT
+%token<n>	ASSIGN_OR ASSIGN_AND
+%token<n>	ASSIGN_PLUS ASSIGN_MINUS ASSIGN_MULT ASSIGN_DIV ASSIGN_MOD
 %token		OR XOR
 %token		AND NOT
 %token		EQ NE
@@ -115,7 +119,7 @@ definition
 function
 	: NAME
         { function_start($1); }
-	  LPAREN param_list_opt RPAREN compound_statement
+	  LPAREN param_list_opt RPAREN statement
         { function_stop(); }
 	;
 
@@ -131,22 +135,26 @@ param_list
 
 param
 	: NAME
+        { B_function_param($1); }
 	;
 
 compound_statement
 	: LBRACE RBRACE
 	| LBRACE 
-		statement_list
+        { B_scope_enter(); }
+	  statement_list
+        { B_scope_exit(); }
 	  RBRACE
 	;
 
 statement_list
 	: statement_list statement
-	| statement
+	| statement { i386_dump(NULL); }
 	;
 
 statement
 	: AUTO auto_decl_list SEMI
+        { B_auto_decl(); }
 	| EXTERN extrn_decl_list SEMI
 	| expr SEMI
 	| if_statement
@@ -154,6 +162,7 @@ statement
       LPAREN expr RPAREN 
       statement
 	| RETURN LPAREN expr RPAREN SEMI
+        { B_return_expr($3); }
 	| RETURN SEMI
 	| SEMI
 	| compound_statement
@@ -166,6 +175,7 @@ auto_decl_list
 
 auto_decl
 	: NAME
+        { B_auto_var($1); }
 	;
 
 extrn_decl_list
@@ -189,21 +199,37 @@ expr
 expr_assignment
 	: expr_conditional
 	| expr_assignment ASSIGN expr_assignment
+		{ $$ = B_expr_assign(BINOP_NULL, $1, $3); }
     | expr_assignment ASSIGN_PLUS expr_assignment
+		{ $$ = B_expr_assign(BINOP_PLUS, $1, $3); }
     | expr_assignment ASSIGN_MINUS expr_assignment
+		{ $$ = B_expr_assign(BINOP_MINUS, $1, $3); }
     | expr_assignment ASSIGN_MULT expr_assignment
+		{ $$ = B_expr_assign(BINOP_MULT, $1, $3); }
     | expr_assignment ASSIGN_DIV expr_assignment
+		{ $$ = B_expr_assign(BINOP_DIV, $1, $3); }
     | expr_assignment ASSIGN_MOD expr_assignment
+		{ $$ = B_expr_assign(BINOP_MOD, $1, $3); }
     | expr_assignment ASSIGN_AND expr_assignment
+		{ $$ = B_expr_assign(BINOP_AND, $1, $3); }
     | expr_assignment ASSIGN_OR expr_assignment
+		{ $$ = B_expr_assign(BINOP_OR, $1, $3); }
     | expr_assignment ASSIGN_LT expr_assignment
+		{ $$ = B_expr_assign(BINOP_LT, $1, $3); }
     | expr_assignment ASSIGN_GT expr_assignment
+		{ $$ = B_expr_assign(BINOP_GT, $1, $3); }
     | expr_assignment ASSIGN_LE expr_assignment
+		{ $$ = B_expr_assign(BINOP_LE, $1, $3); }
     | expr_assignment ASSIGN_GE expr_assignment
+		{ $$ = B_expr_assign(BINOP_GE, $1, $3); }
     | expr_assignment ASSIGN_EQ expr_assignment
+		{ $$ = B_expr_assign(BINOP_EQ, $1, $3); }
     | expr_assignment ASSIGN_NE expr_assignment
+		{ $$ = B_expr_assign(BINOP_NE, $1, $3); }
     | expr_assignment ASSIGN_LSHIFT expr_assignment
+		{ $$ = B_expr_assign(BINOP_LSHIFT, $1, $3); }
     | expr_assignment ASSIGN_RSHIFT expr_assignment
+		{ $$ = B_expr_assign(BINOP_RSHIFT, $1, $3); }
     ;
 
 expr_conditional
@@ -214,49 +240,65 @@ expr_conditional
 expr_logical_or
 	: expr_logical_xor
 	| expr_logical_or OR expr_logical_xor
+        { $$ = B_expr_binop(BINOP_OR, $1, $3); }
 	;
 
 expr_logical_xor
 	: expr_logical_and
 	| expr_logical_xor XOR expr_logical_and
+        { $$ = B_expr_binop(BINOP_XOR, $1, $3); }
 	;
 
 expr_logical_and
 	: expr_equality
 	| expr_logical_and AND expr_equality
+        { $$ = B_expr_binop(BINOP_AND, $1, $3); }
 	;
 
 expr_equality
 	: expr_relational
 	| expr_equality EQ expr_relational
+        { $$ = B_expr_binop(BINOP_EQ, $1, $3); }
 	| expr_equality NE expr_relational
+        { $$ = B_expr_binop(BINOP_NE, $1, $3); }
 	;
 
 expr_relational
 	: expr_shift
 	| expr_relational LT expr_shift
+        { $$ = B_expr_binop(BINOP_LT, $1, $3); }
 	| expr_relational LE expr_shift
+        { $$ = B_expr_binop(BINOP_LE, $1, $3); }
 	| expr_relational GT expr_shift
+        { $$ = B_expr_binop(BINOP_GT, $1, $3); }
 	| expr_relational GE expr_shift
+        { $$ = B_expr_binop(BINOP_GE, $1, $3); }
 	;
 
 expr_shift
 	: expr_additive
 	| expr_shift LSHIFT expr_additive
+        { $$ = B_expr_binop(BINOP_LSHIFT, $1, $3); }
 	| expr_shift RSHIFT expr_additive
+        { $$ = B_expr_binop(BINOP_RSHIFT, $1, $3); }
 	;
 
 expr_additive
 	: expr_multiplicative
 	| expr_additive PLUS expr_multiplicative
+        { $$ = B_expr_binop(BINOP_PLUS, $1, $3); }
 	| expr_additive MINUS expr_multiplicative
+        { $$ = B_expr_binop(BINOP_MINUS, $1, $3); }
 	;
 
 expr_multiplicative
 	: expr_unary
 	| expr_multiplicative MULT expr_unary
+        { $$ = B_expr_binop(BINOP_MULT, $1, $3); }
 	| expr_multiplicative DIV expr_unary
+        { $$ = B_expr_binop(BINOP_DIV, $1, $3); }
 	| expr_multiplicative MOD expr_unary
+        { $$ = B_expr_binop(BINOP_MOD, $1, $3); }
 	;
 
 expr_unary
@@ -294,7 +336,7 @@ expr_builtin
 
 expr_primary
 	: NAME
-        { $$ = (Expr){ .type = EXPR_VARIABLE, .name = $1 }; }
+        { $$ = B_expr_variable($1); }
 	| LPAREN expr RPAREN
         { $$ = $2; }
 	| constant

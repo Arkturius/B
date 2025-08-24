@@ -2,13 +2,12 @@
  * b_i386.h
  */
 
-#include "bparser.h"
 #include "btypes.h"
 #if !defined (_B_I386_H)
 # define _B_I386_H
 
 # define    BACKEND             i386
-# define    BACKEND_REGS        "edx", "ecx", "eax", "ebx", "edi", "esi"
+# define    BACKEND_REGS        "esi", "edi", "ebx", "eax", "ecx", "edx"
 # define    BACKEND_REG_MAX     6
 # define    BACKEND_WORD_SIZE   4
 # define    BACKEND_DECLARATION
@@ -43,112 +42,6 @@ i386_dump_directive(Instr *directive)
     }
     printf("%s %s\n", prefix, data);
     return (true);
-}
-
-String
-op_type(OperandType t)
-{
-    switch (t)
-    {
-        case OP_NULL: return "OP_NULL";
-		case OP_VREG: return "OP_VREG";
-		case OP_PREG: return "OP_PREG";
-		case OP_MEM: return "OP_MEM";
-		case OP_IMM: return "OP_IMM";
-		case OP_LABEL: return "OP_LABEL";
-        default: return "UNKNOWN";
-    }
-}
-
-String
-instr_type(InstrType t)
-{
-    switch (t) 
-    {
-		case INSTR_MOVE: return "INSTR_MOVE";
-		case INSTR_LOAD: return "INSTR_LOAD";
-		case INSTR_STORE: return "INSTR_STORE";
-		case INSTR_ADD: return "INSTR_ADD";
-		case INSTR_SUB: return "INSTR_SUB";
-		case INSTR_MUL: return "INSTR_MUL";
-		case INSTR_DIV: return "INSTR_DIV";
-		case INSTR_MOD: return "INSTR_MOD";
-		case INSTR_AND: return "INSTR_AND";
-		case INSTR_OR: return "INSTR_OR";
-		case INSTR_XOR: return "INSTR_XOR";
-		case INSTR_SHL: return "INSTR_SHL";
-		case INSTR_SHR: return "INSTR_SHR";
-		case INSTR_JMP: return "INSTR_JMP";
-		case INSTR_JCC: return "INSTR_JCC";
-		case INSTR_CALL: return "INSTR_CALL";
-		case INSTR_RET: return "INSTR_RET";
-		case INSTR_LABEL: return "INSTR_LABEL";
-		case INSTR_PUSH: return "INSTR_PUSH";
-		case INSTR_POP: return "INSTR_POP";
-		case INSTR_DIRECTIVE: return "INSTR_DIRECTIVE";
-        default: return "UNKNOWN";
-    }
-}
-
-String
-directive_type(DirectiveType t)
-{
-    switch (t)
-    {
-		case DIR_SYNTAX: return "DIR_SYNTAX";
-		case DIR_SECTION: return "DIR_SECTION";
-		case DIR_GLOBAL: return "DIR_GLOBAL";
-		case DIR_EXTERN: return "DIR_EXTERN";
-		case DIR_ALIGN: return "DIR_ALIGN";
-		case DIR_STRING: return "DIR_STRING";
-		case DIR_BYTE: return "DIR_BYTE";
-		case DIR_WORD: return "DIR_WORD";
-		case DIR_DWORD: return "DIR_DWORD";
-		case DIR_QWORD: return "DIR_QWORD";
-		case DIR_LABEL: return "DIR_LABEL";
-        default: return "UNKNOWN";
-    }
-}
-
-void
-dump_operand(Operand op, bool is_directive)
-{
-    if (op.type == OP_NULL)
-        return ;
-    printf("  \033[90;1m%-8s\033[0m, ", op_type(op.type));
-    switch (op.type)
-    {
-        case OP_VREG:
-            printf("reg = \033[31mv%d\033[0m", op.reg); break ;
-        case OP_PREG:
-            printf("reg = \033[31m%s\033[0m", op.lbl); break ;
-        case OP_MEM:
-            printf("mem = \033[34m%d\033[0m", op.off); break ;
-        case OP_IMM:
-            if (!is_directive)
-                printf("imm = \033[32m%ld\033[0m", op.imm);
-            else
-                printf("dir = %s", directive_type(op.imm));
-            break ;
-        case OP_LABEL:
-            printf("lbl = \033[1m'%s'\033[0m", op.lbl); break ;
-        default:
-            break ;
-    }
-    printf("\n");
-}
-
-void
-dump_instr(Instr *ins)
-{
-    printf("\033[36;1m%s\033[0m:\n", instr_type(ins->type));
-    if (ins->dst.type != OP_NULL)
-        dump_operand(ins->dst, ins->type == INSTR_DIRECTIVE);
-    if (ins->op1.type != OP_NULL)
-        dump_operand(ins->op1, ins->type == INSTR_DIRECTIVE);
-    if (ins->op2.type != OP_NULL)
-        dump_operand(ins->op2, ins->type == INSTR_DIRECTIVE);
-    printf("\n");
 }
 
 bool 
@@ -197,59 +90,20 @@ i386_dump(ASMBackend *back)
 
 BACKEND_DEF(prologue)
 {
-    Instr   tmp;
-
-    tmp = (Instr)
-    {
-        .type = INSTR_PUSH,
-        .op1 = _OP_PREG("ebp"),
-    };
-    vec_append(C.code_buffer, tmp);
-    
-    tmp = (Instr)
-    {
-        .type = INSTR_MOVE,
-        .dst = _OP_PREG("ebp"),
-        .op1 = _OP_PREG("ebp"),
-        .op2 = _OP_PREG("esp"),
-    };
-    vec_append(C.code_buffer, tmp);
-
-    tmp = (Instr)
-    {
-        .type = INSTR_SUB,
-        .dst = _OP_PREG("esp"),
-        .op1 = _OP_PREG("esp"),
-        .op2 = _OP_IMM(0),
-    };
-    vec_append(C.code_buffer, tmp);
+    asm_push(_OP_PREG("ebp"));
+    asm_move(_OP_PREG("ebp"), _OP_PREG("esp"));
+    asm_stack_reserve(0);
 }
  
 BACKEND_DEF(epilogue)
 {
-    Instr   tmp;
+    Instr   ret;
 
-    tmp = (Instr)
-    {
-        .type = INSTR_MOVE,
-        .dst = _OP_PREG("esp"),
-        .op1 = _OP_PREG("esp"),
-        .op2 = _OP_PREG("ebp"),
-    };
-    vec_append(C.code_buffer, tmp);
+    asm_move(_OP_PREG("esp"), _OP_PREG("ebp"));
+    asm_pop(_OP_PREG("ebp"));
     
-    tmp = (Instr)
-    {
-        .type = INSTR_POP,
-        .op1 = _OP_PREG("ebp"),
-    };
-    vec_append(C.code_buffer, tmp);
-    
-    tmp = (Instr)
-    {
-        .type = INSTR_RET,
-    };
-    vec_append(C.code_buffer, tmp);
+    ret = (Instr) { .type = INSTR_RET };
+    vec_append(C.code_buffer, ret);
 }
 
 BACKEND_DEF(directive, DirectiveType type, Operand data)
@@ -263,16 +117,97 @@ BACKEND_DEF(directive, DirectiveType type, Operand data)
     vec_append(C.code_buffer, dir);
 }
 
-BACKEND_DEF(move, Operand dst, Operand src) {}
+BACKEND_DEF(move, Operand dst, Operand src)
+{
+    Instr   mov = (Instr)
+    {
+        .type = INSTR_MOVE,
+        .dst = dst,
+        .op1 = dst,
+        .op2 = src,
+    };
+    vec_append(C.code_buffer, mov);
+}
+
 BACKEND_DEF(load, Operand dst, Operand addr) {}
 BACKEND_DEF(store, Operand addr, Operand src) {}
-BACKEND_DEF(op_bin, InstrType type, Operand dst, Operand a, Operand b) {}
-BACKEND_DEF(op_un, InstrType type, Operand dst, Operand a) {}
-BACKEND_DEF(jump, Operand label) {}
-BACKEND_DEF(jump_cc, JumpType type, Operand label) {}
+
+BACKEND_DEF(op_bin, BinopType type, Operand dst, Operand a, Operand b)
+{
+    InstrType   optypes[] = 
+    {
+    	[BINOP_NULL] = INSTR_NULL,
+    	[BINOP_PLUS] = INSTR_ADD,
+    	[BINOP_MINUS] = INSTR_SUB,
+    	[BINOP_MULT] = INSTR_MUL,
+    	[BINOP_DIV] = INSTR_DIV,
+    	[BINOP_MOD] = INSTR_MOD,
+    	[BINOP_AND] = INSTR_AND,
+    	[BINOP_OR] = INSTR_OR,
+    	[BINOP_LT] = INSTR_CMP,
+    	[BINOP_GT] = INSTR_CMP,
+    	[BINOP_LE] = INSTR_CMP,
+    	[BINOP_GE] = INSTR_CMP,
+    	[BINOP_EQ] = INSTR_CMP,
+    	[BINOP_NE] = INSTR_CMP,
+    	[BINOP_LSHIFT] = INSTR_SHL,
+    	[BINOP_RSHIFT] = INSTR_SHR,
+    };
+
+    Instr   op = (Instr)
+    {
+        .type = optypes[type],
+        .dst = dst,
+        .op1 = a,
+        .op2 = b,
+    };
+    vec_append(C.code_buffer, op);
+}
+
+BACKEND_DEF(op_un, UnopType type, Operand dst, Operand a) {}
+
+BACKEND_DEF(jump, Operand label)
+{
+    Instr   jmp = (Instr)
+    {
+        .type = INSTR_JMP,
+        .dst = label,
+    };
+    vec_append(C.code_buffer, jmp);
+}
+
+BACKEND_DEF(jump_cc, ConditionType type, Operand label) {}
 BACKEND_DEF(call, Operand func) {}
 BACKEND_DEF(ret) {}
-BACKEND_DEF(push, Operand a) {}
-BACKEND_DEF(pop, Operand a) {}
+
+BACKEND_DEF(push, Operand a)
+{
+    Instr   push = (Instr)
+    {
+        .type = INSTR_PUSH,
+        .dst = a,
+    };
+    vec_append(C.code_buffer, push);
+}
+
+BACKEND_DEF(pop, Operand a)
+{
+    Instr   pop = (Instr)
+    {
+        .type = INSTR_POP,
+        .dst = a,
+    };
+    vec_append(C.code_buffer, pop);
+}
+
+BACKEND_DEF(stack_reserve, Size size)
+{
+    asm_op_bin(BINOP_MINUS, _OP_PREG("esp"), _OP_PREG("esp"), _OP_IMM(size));
+}
+
+BACKEND_DEF(stack_release, Size size)
+{
+    asm_op_bin(BINOP_PLUS, _OP_PREG("esp"), _OP_PREG("esp"), _OP_IMM(size));
+}
 
 #endif // _B_I386_H

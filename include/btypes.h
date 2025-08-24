@@ -60,10 +60,11 @@ vec_decl(String);
 
 typedef enum    b_expr_type
 {
-    EXPR_IMMEDIATE,
-    EXPR_REGISTER,
-    EXPR_VARIABLE,
+    EXPR_PREGISTER,
+    EXPR_VREGISTER,
     EXPR_FUNCTION,
+    EXPR_VARIABLE,
+    EXPR_IMMEDIATE,
     EXPR_ROSTRING,
 }   ExprType;
 
@@ -118,7 +119,8 @@ vec_decl(Scope);
 typedef struct  b_function
 {
     String  name;
-    Size    args_count;
+    Size    param_count;
+    Size    autos_count;
     Size    save_caller;
     Size    save_callee;
     Scope  *scope;

@@ -15,10 +15,8 @@
     } _type##s
 
 # define    vec_count(_vec)     ((_vec).count)
-# define    vec_front(_vec)     ((_vec).items - 1)
 # define    vec_first(_vec)     ((_vec).items)
-# define    vec_back(_vec)      ((_vec).items + vec_count(_vec))
-# define    vec_last(_vec)      (vec_back(_vec) + 1)
+# define    vec_last(_vec)      ((_vec).items + vec_count(_vec) - 1)
 # define    vec_index(_vec, _e) ((_e) - (_vec.items))
 
 # define	VEC_MIN_SIZE	8
@@ -35,7 +33,7 @@
                                                                         \
 	for (                                                               \
         _type *_it = _vec.items;                                        \
-        _it < vec_back(_vec);                                           \
+        _it && _it <= vec_last(_vec);                                   \
         ++_it                                                           \
     )
 
@@ -43,7 +41,7 @@
                                                                         \
     for (                                                               \
         _type *_it = vec_last(_vec);                                    \
-        _it > vec_front(_vec);                                          \
+        _it && _it >= vec_first(_vec);                                  \
         --_it                                                           \
     )
 
@@ -93,13 +91,13 @@
 		if (_n >= _vec.count)                                           \
 			vec_count(_vec) = 0;                                        \
 		else                                                            \
-			vec_count(_vec) -= n;                                       \
+			vec_count(_vec) -= _n;                                      \
 	} while (0)
 
 # define    vec_delete(_vec, _i)                                        \
                                                                         \
     do {                                                                \
-        if (i >= vec_count(_vec))                                       \
+        if (_i >= vec_count(_vec))                                      \
             break ;                                                     \
         vec_swaplast(_vec, _i);                                         \
         vec_count(_vec)--;                                              \

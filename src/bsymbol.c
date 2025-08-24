@@ -2,9 +2,11 @@
  * bsymbol.c
  */
 
-# include <string.h>
+#include <string.h>
 
-# include <bsymbol.h>
+#define B_NO_PREFIX
+#include <bsymbol.h>
+#include <bcodegen.h>
 
 static inline Offset
 B_symbol_offset(SymbolType type)
@@ -16,13 +18,10 @@ B_symbol_offset(SymbolType type)
             Scope   *where = vec_last(B.scopes);
 
             where->stack_offset += WORD_SIZE;
-            return (where->stack_offset);
+            return (-where->stack_offset);
         }
         case SYM_PARAMETER:
-        {
-            B.function.args_count++;
-            return (-(B.function.args_count + 1) * WORD_SIZE);
-        }
+            return ((B.function.param_count + 2) * WORD_SIZE);
         case SYM_FUNCTION:
         case SYM_EXTERNAL:
         case SYM_LABEL:
@@ -44,6 +43,9 @@ B_symbol_new(String name, SymbolType type)
     vec_append(B.symtab, new);
 }
 
+void
+symbol_dump_one(Symbol *sym);
+
 Symbol
 *B_symbol_lookup(String name)
 {
@@ -53,12 +55,15 @@ Symbol
     {
         Size    start = sc->sym_offset;
 
-        for (Size i = 0; i < end; ++i)
+        for (Size i = start; i < end; ++i)
         {
             Symbol  *sym = B.symtab.items + i;
 
             if (!strcmp(sym->name, name))
+            {
+                symbol_dump_one(sym);
                 return (sym);
+            }
         }
         end = start;
     }
@@ -73,37 +78,42 @@ Symbol
 }
 
 void
-B_symbol_dump(void)
+symbol_dump_one(Symbol *sym)
 {
     String  type;
+    dprintf(2, ".type = ");
+    switch (sym->type)
+    {
+        case SYM_VARIABLE:
+			type = "SYM_VARIABLE";
+			break ;
+        case SYM_PARAMETER:
+			type = "SYM_PARAMETER";
+			break ;
+        case SYM_FUNCTION:
+			type = "SYM_FUNCTION";
+			break ;
+        case SYM_EXTERNAL:
+			type = "SYM_EXTERNAL";
+			break ;
+        case SYM_LABEL:
+			type = "SYM_LABEL";
+			break ;
+        default:
+            type = "UNKNOWN";
+    }
+    dprintf(2, "%s, .name = %s, ", type, sym->name);
+    dprintf(2, ".off = %d }\n", sym->off);
+}
 
+void
+B_symbol_dump(void)
+{
     dprintf(2, "[B] symbol table:\n");
     vec_foreach(Symbol, sym, B.symtab)
     {
         dprintf(2, "  %3ld: { ", vec_index(B.symtab, sym));
-        dprintf(2, ".type = ");
-        switch (sym->type)
-        {
-            case SYM_VARIABLE:
-				type = "SYM_VARIABLE";
-				break ;
-            case SYM_PARAMETER:
-				type = "SYM_PARAMETER";
-				break ;
-            case SYM_FUNCTION:
-				type = "SYM_FUNCTION";
-				break ;
-            case SYM_EXTERNAL:
-				type = "SYM_EXTERNAL";
-				break ;
-            case SYM_LABEL:
-				type = "SYM_LABEL";
-				break ;
-            default:
-                type = "UNKNOWN";
-        }
-        dprintf(2, "%s, .name = %s, ", type, sym->name);
-        dprintf(2, ".off = %d }\n", sym->off);
+        symbol_dump_one(sym);
     }
 }
 

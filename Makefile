@@ -9,7 +9,9 @@ COMP_SCRIPT	:=	bcomp.sh
 SRCS		:=	b.c 		\
 				bcontext.c	\
 				bsymbol.c	\
+				bexpr.c		\
 				bdecl.c		\
+				bcontrol.c	\
 				bcodegen.c	\
 
 SRC_DIR		:=	src
