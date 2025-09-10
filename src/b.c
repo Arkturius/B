@@ -2,18 +2,7 @@
  * b.c
  */
 
-#include <unistd.h>
-#include <stdio.h>
-
-#define B_NO_PREFIX
-#include <btypes.h>
-#include <bcontext.h>
-#include <bsymbol.h>
-#include <bdecl.h>
-#include <bcodegen.h>
-#include <bcontrol.h>
-
-#include <b_i386.h>
+#include <b.h>
 
 extern int  yylex();
 extern int  yylex_destroy(void);
@@ -21,42 +10,80 @@ extern int  yylex_destroy(void);
 extern int  yyparse();
 extern FILE *yyin;
 
-int yyerror(const char *s);
+static StringC	executable	= NULL;
+static StringC	input_file	= NULL;
 
-int
-main(int argc, char **argv)
+Compiler		B = {0};
+
+bool
+B_compiler_start(void)
 {
-    int     ret;
-    String  exe = SHIFT_ARGS(argc, argv);
-    UNUSED(exe);
+	return (true);
+}
 
-    compiler_start();
-    yyin = stdin;
+bool
+B_compiler_stop(void)
+{
+    return (true);
+}
 
-    if (argc)
-        yyin = fopen(SHIFT_ARGS(argc, argv), "r");
-    else
-        B_warning("no input file. switching to stdin");
+FILE
+*B_compiler_input(StringC filename)
+{
+	FILE	*input = stdin;
 
-    if (!yyin)
-    {
-        B_error("can't open file '%s'", argv[1]);
-        return (1);
-    }
+	if (filename)
+        input = fopen(input_file, "r");
+    if (!input)
+		B_error(ERROR_FILE, "failed to open '%s'", input_file);
+	return (input);
+}
 
-    C_builder_start(i386_setup);
-    ret = yyparse();
-	fclose(yyin);
-
+static int
+B_compiler_run(void)
+{
+	int ret = yyparse();
+	
+    fclose(yyin);
 	yylex_destroy();
-	compiler_stop();
 
 	return (ret);
+}
+
+void
+B_error_opt(ErrorType t, StringC fmt, ...)
+{
+	va_list	ap;
+
+	va_start(ap, fmt);
+	vfprintf(stderr, fmt, ap);
+	va_end(ap);
+
+	exit(1);
 }
 
 int
 yyerror(const char *s)
 {
-    fprintf(stderr, "[B] %s\n", s);
-    return (1);
+	B_error_opt(ERROR_SYNTAX, "parsing error: %s", s);
+	return (1);
+}
+
+int
+main(int argc, char **argv)
+{
+	int	ret = 0;
+
+	executable	= shift_args(argc, argv);
+	input_file	= shift_args(argc, argv);
+
+	yyin		= B_compiler_input(input_file);
+
+	BLOG("compiler starting - file:'%s'", input_file);
+
+	B_compiler_start();
+	ret = B_compiler_run();
+	B_compiler_stop();
+
+	return (ret);
 }

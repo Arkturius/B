@@ -6,13 +6,10 @@ NAME		:=	B
 
 COMP_SCRIPT	:=	bcomp.sh
 
-SRCS		:=	b.c 		\
-				bcontext.c	\
-				bsymbol.c	\
-				bexpr.c		\
-				bdecl.c		\
-				bcontrol.c	\
-				bcodegen.c	\
+SRCS		:=	b.c				\
+				expression.c	\
+				program.c		\
+				codegen.c		\
 
 SRC_DIR		:=	src
 INC_DIR		:=	include
@@ -40,7 +37,7 @@ PARSER_SRC	:=	$(SRC_DIR)/$(PARSER_NAME).y
 PARSER_OUT	:=	$(OBJ_DIR)/$(PARSER_NAME)
 PARSER		:=	$(PARSER_OUT).c
 
-CFLAGS		:=	-Wall -Wextra -Wno-return-type -Wno-unused-parameter -Wno-override-init
+CFLAGS		:=	-Wall -Wextra -Wno-return-type -Wno-unused-parameter -Wno-override-init -Wno-array-bounds
 
 ifeq ($(VERBOSE), 1)
 	CFLAGS	+=	-DB_VERBOSE

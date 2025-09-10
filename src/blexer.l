@@ -6,7 +6,7 @@
 
 DIGIT       [0-9]
 ALPHA       [a-zA-Z_]
-CHAR        [^\n'\\]|\\[\\'\"nrtbf0]
+CHAR        [^\n'\\]|\\[\\'\"nt0*)(]
 
 %option noyywrap
 %option noinput

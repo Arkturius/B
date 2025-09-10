@@ -1,4 +1,7 @@
 main(argc, argv, envp)
 {
-    return (argc);
+    auto    a;
+
+    a = argc;
+    return (a);
 }

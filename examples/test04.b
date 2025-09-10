@@ -4,7 +4,7 @@ strlen(s)
     
     i = 0;
     while (char(s, i))
-        i = i + 1;
+        i =+ 1;
     return (i);
 }
 
