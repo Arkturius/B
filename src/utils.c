@@ -12,8 +12,8 @@ static Size		_bstring_off			= 0;
 
 char			_bstring_buffer[2048]	= {0};
 
-String
-B_arena_string(String new)
+StringC
+B_arena_string(StringC new)
 {
 	if (!_bstring_arena)
 		_bstring_arena = malloc(BSTRING_ARENA_CAP);
@@ -40,7 +40,18 @@ B_arena_string(String new)
 	return (start);
 }
 
-String
+void
+B_arena_erase(Size size)
+{
+	if (size >= _bstring_off)
+	{
+		_bstring_off = 0;
+		return ;
+	}
+	_bstring_off -= size;
+}
+
+StringC
 B_asprintf(StringC fmt, ...)
 {
     va_list ap;
@@ -49,5 +60,5 @@ B_asprintf(StringC fmt, ...)
     vsnprintf((char *)_bstring_buffer, sizeof(_bstring_buffer), fmt, ap);
     va_end(ap);
 
-    return (B_arena_string(_bstring_buffer)); // remove this allocation please
+    return (B_arena_string(_bstring_buffer));
 }

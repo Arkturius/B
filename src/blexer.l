@@ -82,6 +82,7 @@ CHAR        [^\n'\\]|\\[\\'\"nt0*)(]
 ";"			return SEMI;
 ","			return COMMA;
 
+-?0[xX][0-9a-fA-F]+			{ yylval.n = strtol(yytext, NULL, 0); return CONSTANT; }
 -?0?{DIGIT}+				{ yylval.n = strtol(yytext, NULL, 0); return CONSTANT; }
 
 '({CHAR}|{CHAR}{CHAR})'		{ yylval.s = strdup(yytext); return CHAR_CONSTANT; }

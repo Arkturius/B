@@ -2,20 +2,39 @@
  * expr.c
  */
 
+#include "expression.h"
 #include <b.h>
+#include <codegen.h>
 
 # define B_ESCAPE_CHAR	'\\'
 
-Expression
-B_expression_primary(String identifier)
+StringC	register_names[REG_ENUM_MAX] = 
 {
-	return (Expression) {0};
+	[REG_EDX] = "edx",
+	[REG_EAX] = "eax",
+	[REG_ECX] = "ecx",
+	[REG_EBX] = "ebx",
+	[REG_EDI] = "edi",
+	[REG_ESI] = "esi",
+	[REG_ESP] = "esp",
+	[REG_EBP] = "ebp",
+};
+
+Expression
+B_expression_variable(StringC name)
+{
+	Symbol	*symbol = B_symbol_find(name);
+
+	if (!symbol)
+		B_error(ERROR_SYMBOL, "use of unknown identifier '%s'", name);
+
+	return (Expression) { .type = EXPR_MEMORY, .mem = MEM_STACK(symbol->off) };
 }
 
 # define	CONST_CHAR_ADD(_const, _x)	{ _const <<= 8; _const |= _x; }
 
 static Expression
-B_expression_constant_char(String str)
+B_expression_constant_char(StringC str)
 {
 	Size	len = strlen(str) - 1;
 	short	char_constant = 0;
@@ -69,18 +88,30 @@ B_expression_constant_char(String str)
 }
 
 static Expression
-B_expression_constant_string(String str)
+B_expression_constant_string(StringC str)
 {
 	BTODO("String constants: allocation and expression.");
 }
 
 Expression
-B_expression_constant(u64 value, String str, bool is_char)
+B_expression_constant(u64 value, StringC str, bool is_char)
 {
 	if (!str)
-		return (Expression) { .type = 1, .imm = value };
+		return (Expression) { .type = EXPR_IMMEDIATE, .imm = value };
 	if (!is_char)
 		return (B_expression_constant_string(str + 1));
 	else
 		return (B_expression_constant_char(str + 1));
+}
+
+Expression
+B_expression_assignment(u32 type, Expression lhs, Expression rhs)
+{
+	if (type != ASSIGN_OP)
+		BTODO("handle assignment + operator.");
+
+	asm_store(lhs, rhs);
+	
+//	B_release_expression(rhs);
+	return (lhs);
 }

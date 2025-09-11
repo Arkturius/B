@@ -2,6 +2,8 @@
  * codegen.c
  */
 
+#include "expression.h"
+#include <b.h>
 #include <codegen.h>
 
 StringC syntax_names[SYNTAX_ENUM_MAX] = 
@@ -25,6 +27,14 @@ StringC	section_names[SECTION_ENUM_MAX] =
 	[SECTION_RODATA]	= ".rodata",
 	[SECTION_BSS]		= ".bss",
 };
+
+static StringC
+B_register(Register r)
+{
+	if (r >= REG_ENUM_MAX)
+		return (NULL);
+	return (register_names[r]);
+}
 
 void
 asm_directive_opt(DirectiveType type, struct _asm_directive_opt opt)
@@ -57,18 +67,45 @@ asm_directive_opt(DirectiveType type, struct _asm_directive_opt opt)
 }
 
 void
-asm_label(String name)
+asm_label(StringC name)
 {
 	printf("%s:\n", name);
 }
 
-String
+void
+asm_store(Expression dst, Expression src)
+{
+	switch (dst.type)
+	{
+		case EXPR_REGISTER:
+		case EXPR_MEMORY:
+			asm_mov(dst, src);
+			break ;
+		default:
+			B_error(ERROR_SYNTAX, "lvalue needed at the left of assignment.");
+	}
+}
+
+StringC
 asm_operand(Expression e)
 {
 	switch (e.type)
 	{
 		case EXPR_REGISTER:
-			return (e.reg);
+			return (B_register(e.reg));
+		case EXPR_IMMEDIATE:
+		{
+			StringC	op = B_asprintf("%d", e.imm);
+
+			return (op);
+		}
+		case EXPR_MEMORY:
+		{
+			StringC	op = B_asprintf("");
+
+			BTODO("memory operands.");
+			return (op);
+		}
 		default:
 			B_error(ERROR_SYNTAX, "unknown expression type.");
 	}
@@ -77,7 +114,7 @@ asm_operand(Expression e)
 void
 asm_push(Expression p)
 {
-	String	op = asm_operand(p);
+	StringC	op = asm_operand(p);
 
 	printf("  push    %s\n", op);
 }
@@ -85,7 +122,7 @@ asm_push(Expression p)
 void
 asm_pop(Expression p)
 {
-	String	op = asm_operand(p);
+	StringC	op = asm_operand(p);
 
 	printf("  pop     %s\n", op);
 }
@@ -93,17 +130,26 @@ asm_pop(Expression p)
 void
 asm_mov(Expression dst, Expression src)
 {
-	String	op1 = asm_operand(dst);
-	String	op2 = asm_operand(src);
+	StringC	op1 = asm_operand(dst);
+	StringC	op2 = asm_operand(src);
 
 	printf("  mov     %s, %s\n", op1, op2);
 }
 
 void
+asm_sub(Expression a, Expression b)
+{
+	StringC	op1 = asm_operand(a);
+	StringC	op2 = asm_operand(b);
+
+	printf("  sub     %s, %s\n", op1, op2);
+}
+
+void
 asm_xor(Expression a, Expression b)
 {
-	String	op1 = asm_operand(a);
-	String	op2 = asm_operand(b);
+	StringC	op1 = asm_operand(a);
+	StringC	op2 = asm_operand(b);
 
 	printf("  xor     %s, %s\n", op1, op2);
 }

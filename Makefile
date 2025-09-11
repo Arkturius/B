@@ -7,9 +7,12 @@ NAME		:=	B
 COMP_SCRIPT	:=	bcomp.sh
 
 SRCS		:=	b.c				\
+				declarations.c	\
 				expression.c	\
+				symbols.c		\
 				program.c		\
 				codegen.c		\
+				utils.c			\
 
 SRC_DIR		:=	src
 INC_DIR		:=	include

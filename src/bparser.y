@@ -111,9 +111,9 @@ definition
 
 function
 	: NAME
-	  { B_function_start($1); }
+		{ B_function_start($1); }
 	  LPAREN param_list_opt RPAREN statement
-	  { B_function_stop($1); }
+		{ B_function_stop($1); }
 	;
 
 param_list_opt
@@ -133,7 +133,9 @@ param
 compound_statement
 	: LBRACE RBRACE
 	| LBRACE 
+		{ B_scope_start(); }
 	  statement_list
+		{ B_scope_stop(); }
 	  RBRACE
 	;
 
@@ -144,7 +146,9 @@ statement_list
 
 statement
 	: AUTO auto_decl_list SEMI
+		{ B_auto_decl(); }
 	| EXTERN extrn_decl_list SEMI
+		{ B_extern_decl(); }
 	| expr SEMI
 	| if_statement
 	| WHILE 
@@ -165,7 +169,9 @@ auto_decl_list
 
 auto_decl
 	: NAME
+		{ B_auto_variable($1, WORD_SIZE); }
 	| NAME RBRACKET CONSTANT LBRACKET
+		{ B_auto_variable($1, WORD_SIZE * ($3 + 1)); }
 	;
 
 extrn_decl_list
@@ -198,20 +204,21 @@ expr
 
 expr_assignment
 	: expr_conditional
-	| expr_assignment ASSIGN expr_assignment
-    | expr_assignment ASSIGN_PLUS expr_assignment
-    | expr_assignment ASSIGN_MINUS expr_assignment
-    | expr_assignment ASSIGN_MULT expr_assignment
-    | expr_assignment ASSIGN_DIV expr_assignment
-    | expr_assignment ASSIGN_MOD expr_assignment
-    | expr_assignment ASSIGN_AND expr_assignment
-    | expr_assignment ASSIGN_OR expr_assignment
-    | expr_assignment ASSIGN_LT expr_assignment
-    | expr_assignment ASSIGN_GT expr_assignment
-    | expr_assignment ASSIGN_LE expr_assignment
-    | expr_assignment ASSIGN_GE expr_assignment
-    | expr_assignment ASSIGN_EQ expr_assignment
-    | expr_assignment ASSIGN_NE expr_assignment
+	| expr_assignment ASSIGN		expr_assignment
+		{ $$ = B_expression_assignment(ASSIGN_OP, $1, $3); }
+    | expr_assignment ASSIGN_PLUS	expr_assignment
+    | expr_assignment ASSIGN_MINUS	expr_assignment
+    | expr_assignment ASSIGN_MULT	expr_assignment
+    | expr_assignment ASSIGN_DIV	expr_assignment
+    | expr_assignment ASSIGN_MOD	expr_assignment
+    | expr_assignment ASSIGN_AND	expr_assignment
+    | expr_assignment ASSIGN_OR		expr_assignment
+    | expr_assignment ASSIGN_LT 	expr_assignment
+    | expr_assignment ASSIGN_GT 	expr_assignment
+    | expr_assignment ASSIGN_LE 	expr_assignment
+    | expr_assignment ASSIGN_GE 	expr_assignment
+    | expr_assignment ASSIGN_EQ 	expr_assignment
+    | expr_assignment ASSIGN_NE 	expr_assignment
     | expr_assignment ASSIGN_LSHIFT expr_assignment
     | expr_assignment ASSIGN_RSHIFT expr_assignment
     ;
@@ -297,7 +304,7 @@ expr_builtin
 	;
 
 expr_primary
-	: NAME					{ $$ = B_expression_primary($1); }
+	: NAME					{ $$ = B_expression_variable($1); }
 	| LPAREN expr RPAREN	{ $$ = $2; }
 	| constant
 	;

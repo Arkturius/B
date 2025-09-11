@@ -2,6 +2,7 @@
  * b.c
  */
 
+#include "arr.h"
 #include <b.h>
 
 extern int  yylex();
@@ -18,12 +19,18 @@ Compiler		B = {0};
 bool
 B_compiler_start(void)
 {
+	arr_reserve(B.symbols, 16);
+	arr_reserve(B.scopes, 16);
+
 	return (true);
 }
 
 bool
 B_compiler_stop(void)
 {
+	arr_destroy(B.symbols);
+	arr_destroy(B.scopes);
+
     return (true);
 }
 

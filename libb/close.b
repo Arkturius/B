@@ -1,6 +1,6 @@
 close(fd)
 {
-	extern syscall;
+	extrn syscall;
 
-	return (syscall(0x03, fd));
+	return (syscall(3, fd));
 }

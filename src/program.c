@@ -2,6 +2,7 @@
  * program.c
  */
 
+#include "arr.h"
 #include <b.h>
 #include <codegen.h>
 
@@ -23,27 +24,42 @@ B_program_start(void)
 void
 B_program_stop(void)
 {
+	arr_foreach(Symbol, sym, B.symbols)
+	{
+		printf("Symbol - { ");
+		printf("type = %d, ", sym->type);
+		printf("name = %s, ", sym->name);
+		printf("size = %d, ", sym->size);
+		printf("off = %d", sym->off);
+		printf("}\n");
+	}
+
 	B_rodata();
 }
 
 void
-B_function_start(String name)
+B_scope_start(void)
 {
-	asm_label(name);
-	asm_directive(DIRECTIVE_LONG,   .data = name, .off = WORD_SIZE);
+	Scope	*current = arr_last(B.scopes);
 
-	asm_push(REG_EBP);
-	asm_mov(REG_EBP, REG_ESP);
-	asm_xor(REG_EAX, REG_EAX);
+	Scope	new = 
+	{
+		.decl_size	= 0,
+		.sym_count	= 0,
+		.sym_start	= arr_count(B.symbols),
+		.stack		= current ? current->stack : 0,
+	};
+	arr_append(B.scopes, new);
 }
 
 void
-B_function_stop(String name)
+B_scope_stop(void)
 {
-	asm_mov(REG_ESP, REG_EBP);
-	asm_pop(REG_EBP);
-	asm_ret();
+	Scope	*current = arr_last(B.scopes);
 
-	asm_directive(DIRECTIVE_GLOBAL, .data = name);
-	printf("\n");
+	if (arr_count(B.scopes) == 0)
+		B_error(ERROR_SYNTAX, "trying to exit global scope.");
+
+	arr_pop(B.symbols, current->sym_count);
+	arr_pop(B.scopes, 1);
 }

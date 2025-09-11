@@ -35,17 +35,6 @@ typedef enum _bsection_type
 	SECTION_ENUM_MAX,
 }	SectionType;
 
-# define	REG(_s)	((Expression){.type = EXPR_REGISTER, .reg = _s})
-
-# define	REG_EAX	REG("eax")
-# define	REG_EBX	REG("ebx")
-# define	REG_ECX	REG("ecx")
-# define	REG_EDX	REG("edx")
-# define	REG_EDI	REG("edi")
-# define	REG_ESI	REG("esi")
-# define	REG_ESP	REG("esp")
-# define	REG_EBP	REG("ebp")
-
 extern StringC	syntax_names[SYNTAX_ENUM_MAX];
 # define		SYNTAX(_d)	syntax_names[(_d)]
 
@@ -54,7 +43,6 @@ extern StringC	directive_names[DIRECTIVE_ENUM_MAX];
 
 extern StringC	section_names[SECTION_ENUM_MAX];
 # define		SECTION(_s)		section_names[(_s)]
-
 
 struct _asm_directive_opt
 {
@@ -73,7 +61,13 @@ asm_directive_opt(DirectiveType type, struct _asm_directive_opt opt);
 	asm_directive_opt(_type, (struct _asm_directive_opt){ __VA_ARGS__ })
 
 void
-asm_label(String name);
+asm_label(StringC name);
+
+void
+asm_store(Expression dst, Expression src);
+
+Expression
+asm_load(Expression from);
 
 void
 asm_push(Expression p);
@@ -83,6 +77,9 @@ asm_pop(Expression p);
 
 void
 asm_mov(Expression dst, Expression src);
+
+void
+asm_sub(Expression a, Expression b);
 
 void
 asm_xor(Expression a, Expression b);
