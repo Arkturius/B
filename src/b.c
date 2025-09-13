@@ -2,7 +2,6 @@
  * b.c
  */
 
-#include "arr.h"
 #include <b.h>
 
 extern int  yylex();

@@ -29,13 +29,18 @@ typedef double		f64;
 
 typedef char        *String;
 typedef char const	*StringC;
-typedef u32			Size;
-typedef i32         Offset;
 
 arr_decl(String,	Strings);
 arr_decl(StringC,	StringCs);
 
 # define    shift_args(ac, av)  (ac--, *av++)
 # define    unused(_x)          (void)(_x)
+
+# if !defined (__noreturn)
+#  define	__noreturn			__attribute__((noreturn))
+# endif
+
+typedef u32			Size;
+typedef i32         Offset;
 
 #endif // _TYPES_H

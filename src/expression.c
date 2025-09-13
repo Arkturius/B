@@ -110,8 +110,23 @@ B_expression_assignment(u32 type, Expression lhs, Expression rhs)
 	if (type != ASSIGN_OP)
 		BTODO("handle assignment + operator.");
 
-	asm_store(lhs, rhs);
-	
-//	B_release_expression(rhs);
+	if (lhs.type == EXPR_IMMEDIATE)
+		B_error(ERROR_SYNTAX, "lvalue needed at the left of an assignment.");
+
+	code_move(lhs, rhs);
+	if (rhs.type == EXPR_REGISTER)
+		register_free(rhs.reg);
+
 	return (lhs);
 }
+
+Expression
+B_expression_binop(BinopType type, Expression a, Expression b)
+{
+	Expression	dst = REG(register_alloc(REG_NULL));
+
+	code_binop(type, dst, a, b);
+	return (dst);
+}
+
+

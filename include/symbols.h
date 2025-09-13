@@ -16,7 +16,10 @@ enum _bsymbol_type
 {
 	SYMBOL_VARIABLE,
 	SYMBOL_FUNCTION,
+	SYMBOL_PARAMETER,
 	SYMBOL_LABEL,
+
+	SYMBOL_ENUM_MAX,
 };
 
 struct _bsymbol

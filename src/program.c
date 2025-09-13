@@ -3,6 +3,7 @@
  */
 
 #include "arr.h"
+#include "expression.h"
 #include <b.h>
 #include <codegen.h>
 
@@ -15,26 +16,48 @@ B_rodata()
 void
 B_program_start(void)
 {
-	asm_directive(DIRECTIVE_ALIGN,	 .value = 16);
-	asm_directive(DIRECTIVE_SYNTAX,	 .data = SYNTAX(SYNTAX_INTEL));
-	asm_directive(DIRECTIVE_SECTION, .data = SECTION(SECTION_TEXT));
+	emit_directive(DIRECTIVE_ALIGN,	  .value = 16);
+	emit_directive(DIRECTIVE_SYNTAX,  .data = SYNTAX(SYNTAX_INTEL));
+	emit_directive(DIRECTIVE_SECTION, .data = SECTION(SECTION_TEXT));
 	printf("\n");
 }
 
 void
 B_program_stop(void)
 {
-	arr_foreach(Symbol, sym, B.symbols)
-	{
-		printf("Symbol - { ");
-		printf("type = %d, ", sym->type);
-		printf("name = %s, ", sym->name);
-		printf("size = %d, ", sym->size);
-		printf("off = %d", sym->off);
-		printf("}\n");
-	}
-
 	B_rodata();
+}
+
+void
+B_label_push(LabelType type)
+{
+	if (type >= LABEL_ENUM_MAX)
+		B_error(ERROR_SYNTAX, "invalid label type.");
+
+	Label	label;
+
+	label.id	= B.labels.next_id++;
+	label.name	= B_asprintf(".L%d", label.id);
+
+	arr_append(B.labels.grid[type], label);
+}
+
+void
+B_label_pop(LabelType type)
+{
+	
+}
+
+Label
+B_label_get(LabelType type)
+{
+	if (type >= LABEL_ENUM_MAX)
+		B_error(ERROR_SYNTAX, "invalid label type.");
+
+	if (arr_count(B.labels.grid[type]) == 0)
+		B_error(ERROR_SYNTAX, "no existing label for this type.");
+
+	return (*arr_last(B.labels.grid[type]));
 }
 
 void
@@ -62,4 +85,12 @@ B_scope_stop(void)
 
 	arr_pop(B.symbols, current->sym_count);
 	arr_pop(B.scopes, 1);
+}
+
+void
+B_return_expr(Expression ret)
+{
+	if (ret.type != EXPR_REGISTER || ret.reg != REG_NULL)
+		code_move(EAX, ret);
+	code_jump(LABEL_FUNC_STOP, NULL);
 }

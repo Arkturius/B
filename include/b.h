@@ -18,7 +18,7 @@
 int
 yyerror(const char *s);
 
-#  define	BLOG(_s, ...)	printf("[B] > "_s"\n", ##__VA_ARGS__)
+#  define	BLOG(_s, ...)	dprintf(2, "[B] > "_s"\n", ##__VA_ARGS__)
 #  define	BTODO(_s, ...)					\
 	do {									\
 		BLOG("TODO: "_s, ##__VA_ARGS__);	\
@@ -28,8 +28,8 @@ yyerror(const char *s);
 # define	WORD_SIZE	4
 
 typedef struct _bcompiler	Compiler;
-typedef struct _bexpression	Expression;
 typedef struct _bscope		Scope;
+typedef struct _bfunction	Function;
 
 arr_decl(Scope,  Scopes);
 
@@ -41,24 +41,66 @@ struct _bscope
 	Size	stack;
 };
 
-struct _bloop
+typedef enum _blabel_type
 {
-	
+	LABEL_NULL,
+	LABEL_FUNC_STOP,
+	LABEL_LOOP_START,
+	LABEL_LOOP_STOP,
+	LABEL_IF_STOP,
+	LABEL_ELSE_START,
+
+	LABEL_ENUM_MAX,
+}	LabelType;
+
+typedef struct _blabel	Label;
+typedef u32				LabelID;
+
+struct _blabel
+{
+	LabelID	id;
+	StringC	name;
+};
+
+arr_decl(Label,	Labels);
+
+typedef struct _blabel_grid
+{
+	Labels	grid[LABEL_ENUM_MAX - 1];
+	Size	next_id;
+}	LabelGrid;
+
+void
+B_label_push(LabelType type);
+
+void
+B_label_pop(LabelType type);
+
+Label
+B_label_get(LabelType type);
+
+struct _bfunction
+{
+	StringC	name;
+	Size	arg_count;
+	Size	callee_save;
+	Size	caller_save;
 };
 
 struct _bcompiler
 {
 	u32	flags;
 
-	Symbols	symbols;
-	Scopes	scopes;
-	
-	StringC	function;
+	Symbols		symbols;
+	Scopes		scopes;
+	RegFrame	frame;
+	Function	function;
+	LabelGrid	labels;
 };
 
 extern Compiler	B;
 
-StringC
+__attribute__((format(printf, 1, 2))) StringC
 B_asprintf(StringC fmt, ...);
 
 void
@@ -78,11 +120,12 @@ enum _berror_type
 	ERROR_ALLOC,
 	ERROR_SYNTAX,
 	ERROR_SYMBOL,
+	ERROR_ASM,
 
 	ERROR_ENUM_MAX,
 };
 
-void
+__noreturn void
 B_error_opt(ErrorType t, StringC fmt, ...);
 
 # define	B_error(_t, ...)	B_error_opt(_t, ##__VA_ARGS__)
@@ -103,6 +146,8 @@ B_scope_stop(void);
 void
 B_symbol_new(SymbolType type, StringC name, Size size);
 
+void
+B_return_expr(Expression ret);
 
 void
 B_function_start(StringC name);
@@ -110,6 +155,8 @@ B_function_start(StringC name);
 void
 B_function_stop(StringC name);
 
+void
+B_function_param(StringC name);
 
 
 Expression

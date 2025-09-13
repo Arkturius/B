@@ -2,12 +2,12 @@
  * symbols.c
  */
 
-#include "symbols.h"
+#include "arr.h"
 #include <b.h>
 #include <string.h>
 
-static Offset
-B_symbol_offset(Size sym_size)
+static inline Offset
+B_auto_offset(Size sym_size)
 {
 	Scope	*current;
 
@@ -18,39 +18,43 @@ B_symbol_offset(Size sym_size)
 	return (-(current->stack + WORD_SIZE));
 }
 
-static void
-B_symbol_register(Symbol sym)
+static inline Offset
+B_param_offset(void)
 {
-	Scope	*current;
-
-	if (B.scopes.count == 0)
-		B_error(ERROR_SYMBOL, "no current scope for symbol.");
-
-	current = arr_last(B.scopes);
-
-	if (sym.size & (WORD_SIZE - 1))
-		sym.size = (sym.size + WORD_SIZE) % WORD_SIZE;
-
-	current->stack		+= sym.size;
-	current->decl_size	+= sym.size;
-	current->sym_count	+= 1;
+	return (2 + B.function.arg_count) * WORD_SIZE;
 }
 
 Symbol
 *B_symbol_find(StringC name)
 {
+	Size	start = 0;
+
+	if (arr_count(B.scopes) == 0)
+		B_error(ERROR_SYMBOL, "no scope for symbol research.");
+
 	arr_foreach_rev(Scope, scope, B.scopes)
 	{
+		start = scope->sym_start;
 		Symbols	scope_symbols = 
 		{
 			.count = scope->sym_count,
-			.items = arr_first(B.symbols) + scope->sym_start
+			.items = arr_first(B.symbols) + start,
 		};
 		arr_foreach(Symbol, symbol, scope_symbols)
 		{
 			if (strcmp(symbol->name, name) == 0)
 				return (symbol);
 		}
+	}
+	Symbols	parameters = 
+	{
+		.count = B.function.arg_count,
+		.items = arr_first(B.symbols) + start - B.function.arg_count,
+	};
+	arr_foreach(Symbol, symbol, parameters)
+	{
+		if (strcmp(symbol->name, name) == 0)
+			return (symbol);
 	}
 	return (NULL);
 }
@@ -60,37 +64,30 @@ B_symbol_new(SymbolType type, StringC name, Size size)
 {
 	Symbol	sym;
 
+	sym.type = type;
+	sym.name = name;
+	sym.size = size;
 	switch (type)
 	{
 		case SYMBOL_FUNCTION:
 		case SYMBOL_LABEL:
 		{
-			sym = (Symbol)
-			{
-				.type	= type,
-				.name	= name,
-				.off	= 0,
-				.size	= 0,
-			};
+			sym.off = 0;
 			break ;
 		}
 		case SYMBOL_VARIABLE:
 		{
-			Offset	off = B_symbol_offset(size);
-
-			sym = (Symbol)
-			{
-				.type	= SYMBOL_VARIABLE,
-				.name	= name,
-				.off	= off,
-				.size	= size,
-			};
-			B_symbol_register(sym);
+			sym.off = B_auto_offset(size);
+			break ;
+		}
+		case SYMBOL_PARAMETER:
+		{
+			sym.type = SYMBOL_VARIABLE;
+			sym.off = B_param_offset();
 			break ;
 		}
 		default:
 			B_error(ERROR_SYMBOL, "unknown symbol type.");
 	}
-
 	arr_append(B.symbols, sym);
 }

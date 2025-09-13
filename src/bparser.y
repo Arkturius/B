@@ -128,6 +128,7 @@ param_list
 
 param
 	: NAME
+		{ B_function_param($1); }
 	;
 
 compound_statement
@@ -157,7 +158,9 @@ statement
 	| switch_statement
 	| label_statement
 	| RETURN LPAREN expr RPAREN SEMI
+		{ B_return_expr($3); }
 	| RETURN SEMI
+		{ B_return_expr((Expression){0}); }
 	| SEMI
 	| compound_statement
 	;
@@ -266,6 +269,7 @@ expr_shift
 expr_additive
 	: expr_multiplicative
 	| expr_additive PLUS expr_multiplicative
+		{ $$ = B_expression_binop(BINOP_PLUS, $1, $3); }
 	| expr_additive MINUS expr_multiplicative
 	;
 
