@@ -2,21 +2,18 @@
  * program.c
  */
 
-#include "arr.h"
-#include "expression.h"
 #include <b.h>
 #include <codegen.h>
 
 static void
 B_rodata()
 {
-
+	
 }
 
 void
 B_program_start(void)
 {
-	emit_directive(DIRECTIVE_ALIGN,	  .value = 16);
 	emit_directive(DIRECTIVE_SYNTAX,  .data = SYNTAX(SYNTAX_INTEL));
 	emit_directive(DIRECTIVE_SECTION, .data = SECTION(SECTION_TEXT));
 	printf("\n");
@@ -45,7 +42,10 @@ B_label_push(LabelType type)
 void
 B_label_pop(LabelType type)
 {
-	
+	if (type >= LABEL_ENUM_MAX)
+		B_error(ERROR_SYNTAX, "invalid label type.");
+
+	arr_pop(B.labels.grid[type], 1);
 }
 
 Label
@@ -92,5 +92,43 @@ B_return_expr(Expression ret)
 {
 	if (ret.type != EXPR_REGISTER || ret.reg != REG_NULL)
 		code_move(EAX, ret);
-	code_jump(LABEL_FUNC_STOP, NULL);
+	code_jump(COMP_NONE, LABEL_FUNC_STOP, NULL);
+}
+
+void
+B_while_start(void)
+{
+	B_label_push(LABEL_LOOP_START);
+	B_label_push(LABEL_LOOP_STOP);
+
+	code_label(LABEL_LOOP_START);
+}
+
+void
+B_while_condition(Expression cond)
+{
+	Register	tmp = cond.reg;
+
+	if (cond.type != EXPR_REGISTER)
+	{
+		tmp = register_alloc(REG_NULL);
+		code_move(REG(tmp), cond);
+	}
+	code_compare(COMP_E, REG(tmp), REG(tmp));
+	code_jump(COMP_E, LABEL_LOOP_STOP, NULL);
+}
+
+void
+B_while_stop(void)
+{
+	code_jump(COMP_NONE, LABEL_LOOP_START, NULL);
+	code_label(LABEL_LOOP_STOP);
+
+	B_label_pop(LABEL_LOOP_START);
+	B_label_pop(LABEL_LOOP_STOP);
+}
+
+void
+B_goto(StringC name)
+{
 }

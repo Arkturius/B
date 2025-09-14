@@ -20,6 +20,13 @@ StringC	register_names[REG_ENUM_MAX] =
 	[REG_EBP] = "ebp",
 };
 
+StringC jump_ccs[COMP_ENUM_MAX] =
+{
+	[COMP_NONE]	= "jmp",
+	[COMP_E]	= "je",
+	[COMP_NE]	= "jne",
+};
+
 Expression
 B_expression_variable(StringC name)
 {
@@ -27,6 +34,9 @@ B_expression_variable(StringC name)
 
 	if (!symbol)
 		B_error(ERROR_SYMBOL, "use of unknown identifier '%s'", name);
+
+	if (symbol->type == SYMBOL_FUNCTION)
+		return (Expression) { .type = EXPR_SYMBOL, .sym = name };
 
 	return (Expression) { .type = EXPR_MEMORY, .mem = MEM_STACK(symbol->off) };
 }
@@ -105,15 +115,22 @@ B_expression_constant(u64 value, StringC str, bool is_char)
 }
 
 Expression
-B_expression_assignment(u32 type, Expression lhs, Expression rhs)
+B_expression_assignment(AssignType type, Expression lhs, Expression rhs)
 {
-	if (type != ASSIGN_OP)
-		BTODO("handle assignment + operator.");
-
 	if (lhs.type == EXPR_IMMEDIATE)
 		B_error(ERROR_SYNTAX, "lvalue needed at the left of an assignment.");
 
-	code_move(lhs, rhs);
+	switch (type)
+	{
+		case ASSIGN_OP:
+			code_move(lhs, rhs);
+			break;
+		case ASSIGN_OP_PLUS:
+			code_binop(BINOP_PLUS, lhs, lhs, rhs);
+			break ;
+		default:
+			BTODO("handle assignment + operator.");
+	}
 	if (rhs.type == EXPR_REGISTER)
 		register_free(rhs.reg);
 
@@ -123,10 +140,109 @@ B_expression_assignment(u32 type, Expression lhs, Expression rhs)
 Expression
 B_expression_binop(BinopType type, Expression a, Expression b)
 {
-	Expression	dst = REG(register_alloc(REG_NULL));
+	Expression	dst = a;
+
+	if (a.type != EXPR_REGISTER)
+		dst = REG(register_alloc(REG_NULL));
 
 	code_binop(type, dst, a, b);
+	
+	if (a.type == EXPR_REGISTER)
+		register_free(a.reg);
+	if (b.type == EXPR_REGISTER)
+		register_free(b.reg);
+
 	return (dst);
 }
 
+Expression
+B_expression_subscript(Expression arr, Expression idx)
+{
+	Register	r = register_alloc(REG_NULL);
 
+	if (arr.type != EXPR_REGISTER)
+	{
+		code_move(REG(r), arr);
+		arr.reg = r;
+	}
+
+	Expression	addr = 
+	{
+		.type = EXPR_MEMORY,
+		.mem  = MEM(.base = arr.reg),
+	};
+
+	Register	tmp = idx.reg;
+
+	switch (idx.type)
+	{
+		case EXPR_IMMEDIATE:
+			addr.mem.displacement = 4 * idx.imm;
+			break ;
+		case EXPR_MEMORY:
+		{
+			tmp = register_alloc(REG_NULL);
+			code_move(REG(tmp), idx);
+		}
+		/* fallthrough */
+		case EXPR_REGISTER:
+			addr.mem.index = tmp;
+			addr.mem.scale = 4;
+			break ;
+		default:
+			B_error(ERROR_ASM, "invalid subscript index.");
+	}
+	
+	Expression	result = REG(register_alloc(REG_NULL));
+
+	code_move(result, addr);
+
+	register_free(r);
+	register_free(tmp);
+	register_free(arr.reg);
+
+	return (result);
+}
+
+
+Expression
+B_builtin_char(Expression str, Expression idx)
+{
+	Register	r = register_alloc(REG_NULL);
+
+	if (str.type != EXPR_REGISTER)
+	{
+		code_move(REG(r), str);
+		str.reg = r;
+	}
+
+	Memory		from  = MEM(.base = str.reg, .size = 1);
+	Register	tmp = idx.reg;
+
+	switch (idx.type)
+	{
+		case EXPR_IMMEDIATE:
+			from.displacement = idx.imm;
+			break ;
+		case EXPR_MEMORY:
+		{
+			tmp = register_alloc(REG_NULL);
+			code_move(REG(tmp), idx);
+		}
+		/* fallthrough */
+		case EXPR_REGISTER:
+			from.index = tmp;
+			break ;
+		default:
+			B_error(ERROR_ASM, "builtin_char: invalid string index.");
+	}
+	Register	result = register_alloc(REG_NULL);
+
+	register_free(r);
+	register_free(tmp);
+	register_free(str.reg);
+
+	asm_movzx(result, from);
+
+	return (REG(result));
+}

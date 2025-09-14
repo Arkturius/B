@@ -5,6 +5,7 @@
 #include "expression.h"
 #include <b.h>
 #include <codegen.h>
+#include <stdbool.h>
 
 StringC syntax_names[SYNTAX_ENUM_MAX] = 
 {
@@ -134,6 +135,12 @@ emit_push_mem(Memory mem)
 }
 
 void
+emit_push_sym(StringC sym)
+{
+	EMIT("push", "%s", sym);
+}
+
+void
 emit_pop_imm(Immediate imm)
 {
 	EMIT("pop", "%d", imm);
@@ -153,9 +160,19 @@ emit_pop_mem(Memory mem)
 	EMIT("pop", "%s", rep);
 }
 
+void
+emit_pop_sym(StringC sym)
+{
+	EMIT("pop", "%s", sym);
+}
+
 ASM_BINARY_OP_IMPL(mov);
 ASM_BINARY_OP_IMPL(add);
 ASM_BINARY_OP_IMPL(sub);
+ASM_BINARY_OP_IMPL(and);
+
+ASM_BINARY_OP_IMPL(cmp);
+ASM_BINARY_OP_IMPL(test);
 
 void
 emit_ret()
@@ -164,9 +181,15 @@ emit_ret()
 }
 
 void
-emit_jmp_label(StringC label)
+emit_jmp(StringC jump, StringC label)
 {
-	EMIT("jmp", "%s", label);
+	EMIT(jump, "%s", label);
+}
+
+void
+emit_call(StringC func)
+{
+	EMIT("call", "[%s]", func);
 }
 
 /******************************************************************************/
@@ -184,6 +207,9 @@ asm_push(Expression e)
 			break;
 		case EXPR_MEMORY:
 			emit_push_mem(e.mem);
+			break ;
+		case EXPR_SYMBOL:
+			emit_push_sym(e.sym);
 			break ;
 		default:
 			B_error(ERROR_ASM, "invalid operand type for 'push'.");
@@ -204,6 +230,9 @@ asm_pop(Expression e)
 		case EXPR_MEMORY:
 			emit_pop_mem(e.mem);
 			break ;
+		case EXPR_SYMBOL:
+			emit_pop_sym(e.sym);
+			break ;
 		default:
 			B_error(ERROR_ASM, "invalid operand type for 'pop'.");
 	}
@@ -214,9 +243,11 @@ typedef enum _boperand_pair
 	OP_REG_IMM,
 	OP_REG_REG,
 	OP_REG_MEM,
+	OP_REG_SYM,
 	OP_MEM_IMM,
 	OP_MEM_REG,
 	OP_INVALID,
+	OP_MEM_SYM,
 }	OperandPair;
 
 OperandPair
@@ -230,6 +261,8 @@ asm_operand_pair(Expression dst, Expression src)
 			case EXPR_IMMEDIATE: return (OP_REG_IMM);
 			case EXPR_REGISTER:  return (OP_REG_REG);
 			case EXPR_MEMORY:    return (OP_REG_MEM);
+			case EXPR_SYMBOL:	 return (OP_REG_SYM);
+			default:             break ;
 		}
 		break ;
 		case EXPR_MEMORY:
@@ -238,10 +271,12 @@ asm_operand_pair(Expression dst, Expression src)
 			case EXPR_IMMEDIATE: return (OP_MEM_IMM);
 			case EXPR_REGISTER:  return (OP_MEM_REG);
 			case EXPR_MEMORY:	 return (OP_INVALID);
+			case EXPR_SYMBOL:    return (OP_MEM_SYM);
+			default:             break ;
 		}
 		break ;
 		default:
-			B_error(ERROR_ASM, "invalid operand type for 'mov'");
+			B_error(ERROR_ASM, "invalid operand type.");
 	}
 }
 
@@ -261,11 +296,17 @@ asm_operand_pair(Expression dst, Expression src)
 			case OP_REG_MEM:												\
 				emit_##_instr##_reg_mem(_a.reg, _b.mem);					\
 				break ;														\
+			case OP_REG_SYM:												\
+				emit_##_instr##_reg_sym(_a.reg, _b.sym);					\
+				break ;														\
 			case OP_MEM_IMM:												\
 				emit_##_instr##_mem_imm(_a.mem, _b.imm);					\
 				break ;														\
 			case OP_MEM_REG:												\
 				emit_##_instr##_mem_reg(_a.mem, _b.reg);					\
+				break ;														\
+			case OP_MEM_SYM:												\
+				emit_##_instr##_mem_sym(_a.mem, _b.sym);					\
 				break ;														\
 			case OP_INVALID:												\
 			default:														\
@@ -281,6 +322,14 @@ asm_mov(Expression dst, Expression src)
 		B_error(ERROR_ASM, "'mov': memory to memory not supported.");
 
 	ASM_DISPATCH_BINARY(dst, src, mov);
+}
+
+void
+asm_movzx(Register dst, Memory src)
+{
+	StringC	from = emit_mem(src, true);
+
+	EMIT("movzx", "%s, %s", register_names[dst], from);
 }
 
 void
@@ -302,9 +351,54 @@ asm_sub(Expression dst, Expression sub)
 }
 
 void
+asm_and(Expression a, Expression b)
+{
+	if (a.type == EXPR_MEMORY && b.type == EXPR_MEMORY)
+		B_error(ERROR_ASM, "'and': memory to memory not supported.");
+
+	ASM_DISPATCH_BINARY(a, b, and);
+}
+
+void
+asm_test(Expression a, Expression b)
+{
+	if (a.type == EXPR_MEMORY && b.type == EXPR_MEMORY)
+		B_error(ERROR_ASM, "'test': memory vs memory comparison not supported.");
+
+	ASM_DISPATCH_BINARY(a, b, test);
+}
+
+void
+asm_cmp(Expression a, Expression b)
+{
+	if (a.type == EXPR_MEMORY && b.type == EXPR_MEMORY)
+		B_error(ERROR_ASM, "'cmp': memory vs memory comparison not supported.");
+
+	ASM_DISPATCH_BINARY(a, b, cmp);
+}
+
+void
+asm_call(Expression func)
+{
+	if (func.type == EXPR_REGISTER)
+		emit_call(register_names[func.reg]);
+	else
+		emit_call(func.sym);
+}
+
+void
 asm_ret(void)
 {
 	emit_ret();
+}
+
+void
+asm_jump(CompareType type, StringC lbl)
+{
+	if (type >= COMP_ENUM_MAX)
+		B_error(ERROR_ASM, "invalid jump condition type.");
+
+	emit_jmp(JCC(type), lbl);
 }
 
 /******************************************************************************/
@@ -342,7 +436,7 @@ register_spill(Register wanted)
 	return (wanted);
 }
 
-Register
+void
 register_restore(Register wanted)
 {
 	RegState	*state = &B.frame.states[wanted];
@@ -371,7 +465,7 @@ register_alloc(Register wanted)
 			register_spill(wanted);
 
 		state->in_use = true;
-		BLOG("allocated register [%s]", register_names[wanted]);
+//		BLOG("allocated register [%s]", register_names[wanted]);
 		return (wanted);
 	}
 
@@ -382,11 +476,11 @@ register_alloc(Register wanted)
 		if (!state->in_use)
 		{
 			state->in_use = true;
-			BLOG("allocated register [%s]", register_names[reg]);
+//			BLOG("allocated register [%s]", register_names[reg]);
 			return (reg);
 		}
 	}
-	BLOG("allocated spill slot.");
+//	BLOG("allocated spill slot.");
 	return (register_spill(REG_NULL));
 }
 
@@ -402,12 +496,43 @@ register_free(Register reg)
 		return ;
 
 	state->in_use = false;
-	BLOG("freed register [%s]", register_names[reg]);
+//	BLOG("freed register [%s]", register_names[reg]);
+}
+
+bool
+register_is_same(Expression a, Expression b)
+{
+	if (a.type != EXPR_REGISTER || b.type != EXPR_REGISTER)
+		B_error(ERROR_ASM, "can't compare non-register expressions.'");
+
+	return (a.reg == b.reg);
+}
+
+bool
+memory_is_same(Expression a, Expression b)
+{
+	if (a.type != EXPR_MEMORY || b.type != EXPR_MEMORY)
+		B_error(ERROR_ASM, "can't compare non-memory expressions.'");
+
+	if (a.mem.base != b.mem.base)
+		return (false);
+	if (a.mem.index != b.mem.index)
+		return (false);
+	if (a.mem.scale != b.mem.scale)
+		return (false);
+	if (a.mem.displacement != b.mem.displacement)
+		return (false);
+	return (true);
 }
 
 void
 code_move(Expression dst, Expression src)
 {
+	if (dst.type == EXPR_REGISTER && src.type == EXPR_REGISTER && register_is_same(dst, src))
+		return ;
+	if (dst.type == EXPR_MEMORY && src.type == EXPR_MEMORY && memory_is_same(dst, src))
+		return ;
+
 	if (dst.type == EXPR_MEMORY && src.type == EXPR_MEMORY)
 	{
 		Register	tmp = register_alloc(REG_NULL);
@@ -422,11 +547,11 @@ code_move(Expression dst, Expression src)
 }
 
 void
-code_jump(LabelType type, StringC lbl)
+code_jump(CompareType cond, LabelType type, StringC lbl)
 {
 	if (lbl)
 	{
-		emit_jmp_label(lbl);
+		asm_jump(cond, lbl);
 		return ;
 	}
 	if (type == LABEL_NULL || type >= LABEL_ENUM_MAX)
@@ -434,7 +559,7 @@ code_jump(LabelType type, StringC lbl)
 
 	Label	label = B_label_get(type);
 
-	emit_jmp_label(label.name);
+	asm_jump(cond, label.name);
 }
 
 void
@@ -457,11 +582,44 @@ code_binop(BinopType type, Expression dst, Expression a, Expression b)
 		case BINOP_PLUS:
 			asm_add(dst, b);
 			break ;
+		case BINOP_MINUS:
+			asm_sub(dst, b);
+			break ;
+		case BINOP_AND:
+			asm_and(dst, b);
+			break ;
 		default:
 			B_error(ERROR_SYNTAX, "invalid binop type.");
 	}
-	if (a.type == EXPR_REGISTER)
-		register_free(a.reg);
-	if (b.type == EXPR_REGISTER)
-		register_free(b.reg);
+}
+
+void
+code_call(Expression func)
+{
+	Register	tmp = func.reg;
+
+	if (func.type == EXPR_MEMORY)
+	{
+		tmp = register_alloc(REG_NULL);
+		asm_mov(REG(tmp), func);
+		asm_call(REG(tmp));
+		register_free(tmp);
+	}
+	else
+		asm_call(func);
+
+}
+
+void
+code_compare(CompareType type, Expression a, Expression b)
+{
+	switch (type)
+	{
+		case COMP_E:
+		case COMP_NE:
+			asm_test(a, b);
+			break ;
+		default:
+			BTODO("more CompareType s.");
+	}
 }

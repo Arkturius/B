@@ -95,6 +95,7 @@ struct _bcompiler
 	Scopes		scopes;
 	RegFrame	frame;
 	Function	function;
+	Expressions	arguments;
 	LabelGrid	labels;
 };
 
@@ -150,6 +151,15 @@ void
 B_return_expr(Expression ret);
 
 void
+B_while_start(void);
+
+void
+B_while_condition(Expression cond);
+
+void
+B_while_stop(void);
+
+void
 B_function_start(StringC name);
 
 void
@@ -158,15 +168,10 @@ B_function_stop(StringC name);
 void
 B_function_param(StringC name);
 
-
 Expression
-B_expression_variable(StringC name);
+B_function_call(Expression call);
 
-Expression
-B_expression_constant(u64 value, StringC str, bool is_char);
-
-
-Expression
-B_expression_assignment(u32 type, Expression lhs, Expression rhs);
+void
+B_function_argument(Expression arg);
 
 #endif // _B_COMPILER_H

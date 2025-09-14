@@ -124,6 +124,12 @@ emit_##_instr##_reg_mem(Register dst, Memory src)							\
 }																			\
 																			\
 void																		\
+emit_##_instr##_reg_sym(Register dst, StringC src)							\
+{																			\
+	EMIT(#_instr, "%s, %s", register_names[dst], src);						\
+}																			\
+																			\
+void																		\
 emit_##_instr##_mem_imm(Memory dst, Immediate src)							\
 {																			\
 	StringC	mem = emit_mem(dst, true);										\
@@ -137,6 +143,14 @@ emit_##_instr##_mem_reg(Memory dst, Register src)							\
 	StringC	mem = emit_mem(dst, true);										\
 																			\
 	EMIT(#_instr, "%s, %s", mem, register_names[src]);						\
+}																			\
+																			\
+void																		\
+emit_##_instr##_mem_sym(Memory dst, StringC src)							\
+{																			\
+	StringC	mem = emit_mem(dst, true);										\
+																			\
+	EMIT(#_instr, "%s, %s", mem, src);										\
 }																			\
 
 ASM_BINARY_OP_DECL(mov)
@@ -165,6 +179,9 @@ asm_pop(Expression e);
 void
 asm_mov(Expression dst, Expression src);
 
+void
+asm_movzx(Register dst, Memory src);
+
 
 void
 asm_add(Expression dst, Expression add);
@@ -182,7 +199,7 @@ void
 code_move(Expression dst, Expression src);
 
 void
-code_jump(LabelType type, StringC lbl);
+code_jump(CompareType cond, LabelType type, StringC lbl);
 
 void
 code_label(LabelType type);
@@ -190,12 +207,19 @@ code_label(LabelType type);
 void
 code_binop(BinopType type, Expression dst, Expression a, Expression b);
 
+void
+code_call(Expression func);
 
+void
+code_compare(CompareType type, Expression a, Expression b);
 
 Register
 register_alloc(Register wanted);
 
 void
 register_free(Register reg);
+
+void
+register_restore(Register wanted);
 
 #endif // _CODEGEN_H

@@ -153,10 +153,15 @@ statement
 	| expr SEMI
 	| if_statement
 	| WHILE 
+		{ B_while_start(); }
       LPAREN expr RPAREN 
+		{ B_while_condition($4); }
       statement
+		{ B_while_stop(); }
 	| switch_statement
 	| label_statement
+	| GOTO NAME SEMI
+		{ B_goto($2); }
 	| RETURN LPAREN expr RPAREN SEMI
 		{ B_return_expr($3); }
 	| RETURN SEMI
@@ -210,6 +215,7 @@ expr_assignment
 	| expr_assignment ASSIGN		expr_assignment
 		{ $$ = B_expression_assignment(ASSIGN_OP, $1, $3); }
     | expr_assignment ASSIGN_PLUS	expr_assignment
+		{ $$ = B_expression_assignment(ASSIGN_OP_PLUS, $1, $3); }
     | expr_assignment ASSIGN_MINUS	expr_assignment
     | expr_assignment ASSIGN_MULT	expr_assignment
     | expr_assignment ASSIGN_DIV	expr_assignment
@@ -244,6 +250,7 @@ expr_logical_xor
 expr_logical_and
 	: expr_equality
 	| expr_logical_and AND expr_equality
+		{ $$ = B_expression_binop(BINOP_AND, $1, $3); }
 	;
 
 expr_equality
@@ -297,13 +304,15 @@ expr_postfix
 	| expr_postfix INCR
 	| expr_postfix DECR
 	| expr_postfix LBRACKET expr RBRACKET
-	| expr_postfix LPAREN 
-	  argument_list RPAREN
+		{ $$ = B_expression_subscript($1, $3); }
+	| expr_postfix LPAREN argument_list RPAREN
+		{ $$ = B_function_call($1); }
 	| expr_postfix LPAREN RPAREN
+		{ $$ = B_function_call($1); }
 	;
 
 expr_builtin
-	: F_CHAR LPAREN expr COMMA expr RPAREN				{ $$ = $3; }
+	: F_CHAR LPAREN expr COMMA expr RPAREN				{ $$ = B_builtin_char($3, $5); }
 	| F_LCHAR LPAREN expr COMMA expr COMMA expr RPAREN	{ $$ = $3; }
 	;
 
@@ -320,6 +329,7 @@ argument_list
 
 argument
 	: expr
+		{ B_function_argument($1); }
 	;
 
 constant

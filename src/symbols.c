@@ -46,15 +46,26 @@ Symbol
 				return (symbol);
 		}
 	}
-	Symbols	parameters = 
+	Symbols	params = 
 	{
 		.count = B.function.arg_count,
 		.items = arr_first(B.symbols) + start - B.function.arg_count,
 	};
-	arr_foreach(Symbol, symbol, parameters)
+	arr_foreach(Symbol, param, params)
 	{
-		if (strcmp(symbol->name, name) == 0)
-			return (symbol);
+		if (strcmp(param->name, name) == 0)
+			return (param);
+	}
+
+	Symbols	functions = 
+	{
+		.count = start,
+		.items = arr_first(B.symbols),
+	};
+	arr_foreach(Symbol, function, functions)
+	{
+		if (strcmp(function->name, name) == 0)
+			return (function);
 	}
 	return (NULL);
 }

@@ -88,7 +88,12 @@ enum _bexpr_type
 	EXPR_REGISTER,
 	EXPR_MEMORY,
 	EXPR_IMMEDIATE,
+	EXPR_SYMBOL,
+
+	EXPR_ENUM_MAX,
 };
+
+# define	SYM(_s)	((Expression){.type = EXPR_SYMBOL, .sym = _s})
 
 typedef struct	_bexpression	Expression;
 typedef enum	_bexpr_type		ExpressionType;
@@ -100,9 +105,12 @@ struct _bexpression
 	{
 		u32			imm;
 		Register	reg;
+		StringC		sym;
 	};
 	Memory			mem;
 };
+
+arr_decl(Expression, Expressions);
 
 typedef enum _bbinop_type	BinopType;
 
@@ -126,6 +134,8 @@ enum _bbinop_type
     BINOP_MOD,
 };
 
+typedef enum _bassign_type	AssignType;
+
 enum _bassign_type
 {
     ASSIGN_OP,
@@ -144,9 +154,41 @@ enum _bassign_type
     ASSIGN_OP_MULT,
     ASSIGN_OP_DIV,
     ASSIGN_OP_MOD,
+
+	ASSIGN_ENUM_MAX,
 };
+
+typedef enum _bcompare_type	CompareType;
+
+enum _bcompare_type
+{
+	COMP_NONE,
+	COMP_E,
+	COMP_NE,
+
+	COMP_ENUM_MAX,
+};
+
+extern StringC	jump_ccs[COMP_ENUM_MAX];
+# define	JCC(_j)	jump_ccs[(_j)]
+
+Expression
+B_expression_variable(StringC name);
+
+Expression
+B_expression_constant(u64 value, StringC str, bool is_char);
+
+Expression
+B_expression_assignment(AssignType type, Expression lhs, Expression rhs);
 
 Expression
 B_expression_binop(BinopType type, Expression a, Expression b);
+
+Expression
+B_expression_subscript(Expression arr, Expression idx);
+
+
+Expression
+B_builtin_char(Expression str, Expression idx);
 
 #endif // _EXPRESSION_H
