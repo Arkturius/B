@@ -2,6 +2,7 @@
  * declarations.c
  */
 
+#include "arr.h"
 #include "expression.h"
 #include <b.h>
 #include <codegen.h>
@@ -51,10 +52,11 @@ B_function_call(Expression call)
 		B_error(ERROR_ASM, "can't call on immediate values.'");
 
 	Offset	arg_off = arr_count(B.arguments) * WORD_SIZE;
+	Offset	off_save = arg_off;
 
 	asm_sub(ESP, IMM(arg_off)); // TODO : use last arg slots if needed;
 
-	arr_foreach(Expression, arg, B.arguments)
+	arr_foreach_rev(Expression, arg, B.arguments)
 	{
 		arg_off -= WORD_SIZE;
 		Expression	arg_slot = 
@@ -80,6 +82,10 @@ B_function_call(Expression call)
 		code_move(ret, EAX);
 		register_restore(REG_EAX);
 	}
+
+	if (arr_count(B.labels.grid[LABEL_LOOP_START]) > 0)
+		asm_add(ESP, IMM(off_save)); // TODO: make the immediate offset match what was added before call
+
 	return (ret);
 }
 
@@ -104,6 +110,19 @@ B_auto_register(Symbol sym)
 	current->sym_count	+= 1;
 }
 
+static void
+B_extrn_register(Symbol sym)
+{
+	Scope	*current;
+
+	if (arr_count(B.scopes) == 0)
+		B_error(ERROR_SYMBOL, "no current scope for symbol.");
+
+	current = arr_last(B.scopes);
+
+	current->sym_count += 1;
+}
+
 void
 B_auto_decl(void)
 {
@@ -123,13 +142,8 @@ B_auto_variable(StringC name, Size size)
 }
 
 void
-B_extern_decl()
-{
-	
-}
-
-void
 B_extern_variable(StringC name)
 {
-
+	B_symbol_new(SYMBOL_EXTERN, name, WORD_SIZE);
+	B_extrn_register(*arr_last(B.symbols));
 }

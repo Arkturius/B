@@ -10,10 +10,11 @@ strlen(s)
 
 main(argc, argv, envp)
 {
-	auto	a;
+	auto	v[3];
 
-	a = 2;
-	a(a);
-    return (strlen(argv[1]) + 42);
+	v[0] = 12;
+	v[2] = 69;
+	v[1] = 0xffff;
+    return (strlen(argv[1]) + v[2]);
 }
 

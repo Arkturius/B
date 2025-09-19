@@ -2,13 +2,21 @@
  * program.c
  */
 
+#include "arr.h"
 #include <b.h>
 #include <codegen.h>
 
 static void
 B_rodata()
 {
-	
+	emit_directive(DIRECTIVE_SECTION, .data = SECTION(SECTION_RODATA));
+	arr_foreach(RoString, rostr, B.rostrings)
+	{
+		emit_label(rostr->name);
+		emit_directive(DIRECTIVE_LONG, .data = rostr->name, .off = WORD_SIZE);
+		emit_directive(DIRECTIVE_STRING, .data = rostr->text);
+		printf("\n");
+	}
 }
 
 void

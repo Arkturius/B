@@ -2,6 +2,7 @@
  * symbols.c
  */
 
+#include "symbols.h"
 #include "arr.h"
 #include <b.h>
 #include <string.h>
@@ -15,7 +16,11 @@ B_auto_offset(Size sym_size)
 		B_error(ERROR_SYMBOL, "no current scope for symbol.");
 
 	current = arr_last(B.scopes);
-	return (-(current->stack + WORD_SIZE));
+
+	if (sym_size == WORD_SIZE)
+		return (-(current->stack + WORD_SIZE));
+	else
+		return (-(current->stack + sym_size - WORD_SIZE));
 }
 
 static inline Offset
@@ -82,6 +87,7 @@ B_symbol_new(SymbolType type, StringC name, Size size)
 	{
 		case SYMBOL_FUNCTION:
 		case SYMBOL_LABEL:
+		case SYMBOL_EXTERN:
 		{
 			sym.off = 0;
 			break ;

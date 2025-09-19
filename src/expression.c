@@ -35,10 +35,24 @@ B_expression_variable(StringC name)
 	if (!symbol)
 		B_error(ERROR_SYMBOL, "use of unknown identifier '%s'", name);
 
-	if (symbol->type == SYMBOL_FUNCTION)
+	if (symbol->type == SYMBOL_FUNCTION || symbol->type == SYMBOL_EXTERN)
 		return (Expression) { .type = EXPR_SYMBOL, .sym = name };
 
-	return (Expression) { .type = EXPR_MEMORY, .mem = MEM_STACK(symbol->off) };
+	Expression	var =
+	{
+		.type = EXPR_MEMORY,
+		.mem = MEM_STACK(symbol->off)
+	};
+
+	if (symbol->size > WORD_SIZE)
+	{	
+		Register	tmp = register_alloc(REG_NULL);
+	
+		code_load(REG(tmp), var);
+		return (REG(tmp));
+	}
+
+	return (var);
 }
 
 # define	CONST_CHAR_ADD(_const, _x)	{ _const <<= 8; _const |= _x; }
@@ -94,13 +108,28 @@ B_expression_constant_char(StringC str)
 		}
 		str++;
 	}
-	return (Expression) { .type = 1, .imm = char_constant };
+	return (Expression) { .type = EXPR_IMMEDIATE, .imm = char_constant };
+}
+
+static StringC
+B_expression_string_label(void)
+{
+	return (B_asprintf(".rs%d", arr_count(B.rostrings)));
 }
 
 static Expression
 B_expression_constant_string(StringC str)
 {
-	BTODO("String constants: allocation and expression.");
+	StringC	name = B_expression_string_label();
+
+	RoString	rostr = 
+	{
+		.text = str,
+		.name = name,
+	};
+	arr_append(B.rostrings, rostr);
+
+	return (Expression) { .type = EXPR_SYMBOL, .sym = name };
 }
 
 Expression
@@ -109,16 +138,38 @@ B_expression_constant(u64 value, StringC str, bool is_char)
 	if (!str)
 		return (Expression) { .type = EXPR_IMMEDIATE, .imm = value };
 	if (!is_char)
-		return (B_expression_constant_string(str + 1));
+		return (B_expression_constant_string(str));
 	else
 		return (B_expression_constant_char(str + 1));
 }
 
 Expression
+B_lvalue(Expression e)
+{
+	switch (e.type)
+	{
+		case EXPR_MEMORY:
+			return (e);
+		default:
+			B_error(ERROR_SYNTAX, "needed lvalue for assignment.");
+	}
+}
+
+Expression
+B_deref(Expression addr)
+{
+	Expression	result = REG(register_alloc(REG_NULL));
+
+	code_move(result, addr);
+	return (result);
+}
+
+Expression
 B_expression_assignment(AssignType type, Expression lhs, Expression rhs)
 {
-	if (lhs.type == EXPR_IMMEDIATE)
-		B_error(ERROR_SYNTAX, "lvalue needed at the left of an assignment.");
+	Expression	res;
+
+	lhs = B_lvalue(lhs);
 
 	switch (type)
 	{
@@ -126,13 +177,24 @@ B_expression_assignment(AssignType type, Expression lhs, Expression rhs)
 			code_move(lhs, rhs);
 			break;
 		case ASSIGN_OP_PLUS:
-			code_binop(BINOP_PLUS, lhs, lhs, rhs);
+			res = B_expression_binop(BINOP_PLUS, lhs, rhs);
+			code_move(lhs, res);
+			break ;
+		case ASSIGN_OP_MINUS:
+			res = B_expression_binop(BINOP_MINUS, lhs, rhs);
+			code_move(lhs, res);
 			break ;
 		default:
 			BTODO("handle assignment + operator.");
 	}
-	if (rhs.type == EXPR_REGISTER)
-		register_free(rhs.reg);
+
+	if (lhs.type == EXPR_REGISTER)
+		register_free(lhs.reg);
+	if (lhs.type == EXPR_MEMORY && lhs.mem.base <= REG_USABLE)
+	{
+		register_free(lhs.mem.base);
+		register_free(lhs.mem.index);
+	}
 
 	return (lhs);
 }
@@ -140,10 +202,7 @@ B_expression_assignment(AssignType type, Expression lhs, Expression rhs)
 Expression
 B_expression_binop(BinopType type, Expression a, Expression b)
 {
-	Expression	dst = a;
-
-	if (a.type != EXPR_REGISTER)
-		dst = REG(register_alloc(REG_NULL));
+	Expression	dst = REG(register_alloc(REG_NULL));
 
 	code_binop(type, dst, a, b);
 	
@@ -163,7 +222,7 @@ B_expression_subscript(Expression arr, Expression idx)
 	if (arr.type != EXPR_REGISTER)
 	{
 		code_move(REG(r), arr);
-		arr.reg = r;
+		arr = REG(r);
 	}
 
 	Expression	addr = 
@@ -192,16 +251,11 @@ B_expression_subscript(Expression arr, Expression idx)
 		default:
 			B_error(ERROR_ASM, "invalid subscript index.");
 	}
-	
-	Expression	result = REG(register_alloc(REG_NULL));
 
-	code_move(result, addr);
-
-	register_free(r);
+//	register_free(r);
 	register_free(tmp);
-	register_free(arr.reg);
 
-	return (result);
+	return (addr);
 }
 
 
@@ -245,4 +299,53 @@ B_builtin_char(Expression str, Expression idx)
 	asm_movzx(result, from);
 
 	return (REG(result));
+}
+
+Expression
+B_expression_address(Expression e)
+{
+	switch (e.type)
+	{
+		case EXPR_MEMORY:
+		case EXPR_SYMBOL:
+		{
+			Register	tmp = register_alloc(REG_NULL);
+
+			code_load(REG(tmp), e);
+//			register_free(e.reg);
+			return (REG(tmp));
+		}
+		case EXPR_IMMEDIATE:
+		case EXPR_REGISTER:
+		default:
+			B_error(ERROR_ASM, "can't take the address of this expression.'");
+	}
+}
+
+Expression
+B_expression_deref(Expression e)
+{
+	return (B_expression_subscript(e, IMM(0)));
+}
+
+Expression
+B_expression_incr(Expression e)
+{
+	Register	tmp = register_alloc(REG_NULL);
+
+	code_move(REG(tmp), e);
+	B_expression_assignment(ASSIGN_OP_PLUS, e, IMM(1));
+
+	return (REG(tmp));
+}
+
+Expression
+B_expression_decr(Expression e)
+{
+	Register	tmp = register_alloc(REG_NULL);
+
+	code_move(REG(tmp), e);
+	B_expression_assignment(ASSIGN_OP_MINUS, e, IMM(1));
+
+	return (REG(tmp));
 }

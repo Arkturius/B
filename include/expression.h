@@ -187,6 +187,17 @@ B_expression_binop(BinopType type, Expression a, Expression b);
 Expression
 B_expression_subscript(Expression arr, Expression idx);
 
+Expression
+B_expression_address(Expression e);
+
+Expression
+B_expression_deref(Expression e);
+
+Expression
+B_expression_incr(Expression e);
+
+Expression
+B_expression_decr(Expression e);
 
 Expression
 B_builtin_char(Expression str, Expression idx);

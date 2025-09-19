@@ -79,7 +79,7 @@ CHAR        [^\n'\\]|\\[\\'\"nt0*)(]
 "["			return LBRACKET;
 "]"			return RBRACKET;
 
-";"			return SEMI;
+";"			{ for (u32 i = 0; i < 6; ++i) {register_free(i);} return SEMI; }
 ","			return COMMA;
 
 -?0[xX][0-9a-fA-F]+			{ yylval.n = strtol(yytext, NULL, 0); return CONSTANT; }

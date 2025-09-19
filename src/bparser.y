@@ -149,7 +149,6 @@ statement
 	: AUTO auto_decl_list SEMI
 		{ B_auto_decl(); }
 	| EXTERN extrn_decl_list SEMI
-		{ B_extern_decl(); }
 	| expr SEMI
 	| if_statement
 	| WHILE 
@@ -178,7 +177,7 @@ auto_decl_list
 auto_decl
 	: NAME
 		{ B_auto_variable($1, WORD_SIZE); }
-	| NAME RBRACKET CONSTANT LBRACKET
+	| NAME LBRACKET CONSTANT RBRACKET
 		{ B_auto_variable($1, WORD_SIZE * ($3 + 1)); }
 	;
 
@@ -189,6 +188,7 @@ extrn_decl_list
 
 extrn_decl
 	: NAME
+		{ B_extern_variable($1); }
 	;
 
 if_statement
@@ -217,6 +217,7 @@ expr_assignment
     | expr_assignment ASSIGN_PLUS	expr_assignment
 		{ $$ = B_expression_assignment(ASSIGN_OP_PLUS, $1, $3); }
     | expr_assignment ASSIGN_MINUS	expr_assignment
+		{ $$ = B_expression_assignment(ASSIGN_OP_MINUS, $1, $3); }
     | expr_assignment ASSIGN_MULT	expr_assignment
     | expr_assignment ASSIGN_DIV	expr_assignment
     | expr_assignment ASSIGN_MOD	expr_assignment
@@ -278,6 +279,7 @@ expr_additive
 	| expr_additive PLUS expr_multiplicative
 		{ $$ = B_expression_binop(BINOP_PLUS, $1, $3); }
 	| expr_additive MINUS expr_multiplicative
+		{ $$ = B_expression_binop(BINOP_MINUS, $1, $3); }
 	;
 
 expr_multiplicative
@@ -290,8 +292,10 @@ expr_multiplicative
 /* TODO: Handle expression passing, those are to avoid type clashes. */
 expr_unary
 	: expr_postfix
-	| MULT expr_unary %prec USTAR		{ $$ = $2; }
-	| AND expr_postfix %prec UAMP		{ $$ = $2; }
+	| MULT expr_unary %prec USTAR		
+		{ $$ = B_expression_deref($2); }
+	| AND expr_postfix %prec UAMP
+		{ $$ = B_expression_address($2); }
 	| MINUS expr_unary %prec UMINUS		{ $$ = $2; }
 	| NOT expr_unary %prec UNOT			{ $$ = $2; }
 	| INCR expr_unary					{ $$ = $2; }
@@ -302,7 +306,9 @@ expr_postfix
 	: expr_primary
 	| expr_builtin
 	| expr_postfix INCR
+		{ $$ = B_expression_incr($1); }
 	| expr_postfix DECR
+		{ $$ = B_expression_decr($1); }
 	| expr_postfix LBRACKET expr RBRACKET
 		{ $$ = B_expression_subscript($1, $3); }
 	| expr_postfix LPAREN argument_list RPAREN

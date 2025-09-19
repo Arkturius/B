@@ -3,6 +3,7 @@
  */
 
 #include "expression.h"
+#include <assert.h>
 #include <b.h>
 #include <codegen.h>
 #include <stdbool.h>
@@ -19,6 +20,7 @@ StringC	directive_names[DIRECTIVE_ENUM_MAX] =
 	[DIRECTIVE_SECTION]	= ".section",
 	[DIRECTIVE_GLOBAL]	= ".global",
 	[DIRECTIVE_LONG]	= ".long",
+	[DIRECTIVE_STRING]	= ".string",
 };
 
 StringC	section_names[SECTION_ENUM_MAX] = 
@@ -53,6 +55,9 @@ emit_directive_opt(DirectiveType type, struct _emit_directive_opt opt)
 			printf("%s", (String)opt.data);
 			if (opt.off)
 				printf(" + %u", opt.off);
+			break ;
+		case DIRECTIVE_STRING:
+			printf("%s", (String)opt.data);
 		default:
 			break ;
 	}
@@ -190,6 +195,14 @@ void
 emit_call(StringC func)
 {
 	EMIT("call", "[%s]", func);
+}
+
+void
+emit_lea(Register dst, Memory src)
+{
+	StringC	mem = emit_mem(src, false);
+
+	EMIT("lea", "%s, %s", register_names[dst], mem);
 }
 
 /******************************************************************************/
@@ -401,6 +414,12 @@ asm_jump(CompareType type, StringC lbl)
 	emit_jmp(JCC(type), lbl);
 }
 
+void
+asm_load(Register dst, Memory src)
+{
+	emit_lea(dst, src);
+}
+
 /******************************************************************************/
 
 Offset
@@ -465,7 +484,7 @@ register_alloc(Register wanted)
 			register_spill(wanted);
 
 		state->in_use = true;
-//		BLOG("allocated register [%s]", register_names[wanted]);
+		BLOG("allocated register [%s]", register_names[wanted]);
 		return (wanted);
 	}
 
@@ -476,11 +495,11 @@ register_alloc(Register wanted)
 		if (!state->in_use)
 		{
 			state->in_use = true;
-//			BLOG("allocated register [%s]", register_names[reg]);
+			BLOG("allocated register [%s]", register_names[reg]);
 			return (reg);
 		}
 	}
-//	BLOG("allocated spill slot.");
+	BLOG("allocated spill slot.");
 	return (register_spill(REG_NULL));
 }
 
@@ -496,7 +515,7 @@ register_free(Register reg)
 		return ;
 
 	state->in_use = false;
-//	BLOG("freed register [%s]", register_names[reg]);
+	BLOG("freed register [%s]", register_names[reg]);
 }
 
 bool
@@ -533,7 +552,7 @@ code_move(Expression dst, Expression src)
 	if (dst.type == EXPR_MEMORY && src.type == EXPR_MEMORY && memory_is_same(dst, src))
 		return ;
 
-	if (dst.type == EXPR_MEMORY && src.type == EXPR_MEMORY)
+	if (dst.type == EXPR_MEMORY && (src.type == EXPR_MEMORY || src.type == EXPR_SYMBOL))
 	{
 		Register	tmp = register_alloc(REG_NULL);
 
@@ -544,6 +563,8 @@ code_move(Expression dst, Expression src)
 	}
 	else
 		asm_mov(dst, src);
+	if (src.type == EXPR_REGISTER && src.reg <= REG_USABLE)
+		register_free(src.reg);
 }
 
 void
@@ -607,7 +628,6 @@ code_call(Expression func)
 	}
 	else
 		asm_call(func);
-
 }
 
 void
@@ -622,4 +642,18 @@ code_compare(CompareType type, Expression a, Expression b)
 		default:
 			BTODO("more CompareType s.");
 	}
+}
+
+void
+code_load(Expression dst, Expression src)
+{
+//	assert(dst.type == EXPR_REGISTER && src.type == EXPR_MEMORY);
+
+	asm_load(dst.reg, src.mem);
+}
+
+void
+code_deref(Expression dst, Expression src)
+{
+	asm_mov(dst, src);
 }

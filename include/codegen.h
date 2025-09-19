@@ -21,6 +21,7 @@ typedef enum _bdirective_type
 	DIRECTIVE_SECTION,
 	DIRECTIVE_GLOBAL,
 	DIRECTIVE_LONG,
+	DIRECTIVE_STRING,
 
 	DIRECTIVE_ENUM_MAX,
 }	DirectiveType;
@@ -58,7 +59,7 @@ void
 emit_directive_opt(DirectiveType type, struct _emit_directive_opt opt);
 
 # define	emit_directive(_type, ...)	\
-	emit_directive_opt(_type, (struct _emit_directive_opt){ .off = 5, __VA_ARGS__ })
+	emit_directive_opt(_type, (struct _emit_directive_opt){ __VA_ARGS__ })
 
 /******************************************************************************/
 
@@ -212,6 +213,9 @@ code_call(Expression func);
 
 void
 code_compare(CompareType type, Expression a, Expression b);
+
+void
+code_load(Expression dst, Expression src);
 
 Register
 register_alloc(Register wanted);

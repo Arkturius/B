@@ -30,6 +30,7 @@ yyerror(const char *s);
 typedef struct _bcompiler	Compiler;
 typedef struct _bscope		Scope;
 typedef struct _bfunction	Function;
+typedef struct _brostring	RoString;
 
 arr_decl(Scope,  Scopes);
 
@@ -87,11 +88,20 @@ struct _bfunction
 	Size	caller_save;
 };
 
+struct _brostring
+{
+	StringC	text;
+	StringC	name;
+};
+
+arr_decl(RoString, RoStrings);
+
 struct _bcompiler
 {
 	u32	flags;
 
 	Symbols		symbols;
+	RoStrings	rostrings;
 	Scopes		scopes;
 	RegFrame	frame;
 	Function	function;
