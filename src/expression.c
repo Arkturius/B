@@ -167,8 +167,6 @@ B_deref(Expression addr)
 Expression
 B_expression_assignment(AssignType type, Expression lhs, Expression rhs)
 {
-	Expression	res;
-
 	lhs = B_lvalue(lhs);
 
 	switch (type)
@@ -177,12 +175,8 @@ B_expression_assignment(AssignType type, Expression lhs, Expression rhs)
 			code_move(lhs, rhs);
 			break;
 		case ASSIGN_OP_PLUS:
-			res = B_expression_binop(BINOP_PLUS, lhs, rhs);
-			code_move(lhs, res);
-			break ;
 		case ASSIGN_OP_MINUS:
-			res = B_expression_binop(BINOP_MINUS, lhs, rhs);
-			code_move(lhs, res);
+			code_binop((BinopType)type, lhs, lhs, rhs);
 			break ;
 		default:
 			BTODO("handle assignment + operator.");

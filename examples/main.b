@@ -18,10 +18,10 @@ shift(ac, av)
 main(ac, av, env)
 {
 	extrn	putchar;
-	auto	exe, i;
+	auto	self_name, input_file;
 
 	i = 0;
-	exe	= shift(&ac, &av);
+	self_name = shift(&ac, &av);
 
 	while (char(exe, i))
 	{

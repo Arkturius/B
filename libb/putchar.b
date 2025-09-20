@@ -4,17 +4,3 @@ putchar(c)
 
 	return (syscall(4, 1, &c, 1));
 }
-
-main(argc, argv)
-{
-	auto	i, s;
-
-	i = 0;
-	s = argv[1];
-	while (char(s, i))
-	{
-		putchar(char(s, i));
-		i =+ 1;
-	}
-	return (i);
-}
