@@ -200,7 +200,7 @@ void
 code_move(Expression dst, Expression src);
 
 void
-code_jump(CompareType cond, LabelType type, StringC lbl);
+code_jump(BinopType cond, LabelType type, StringC lbl);
 
 void
 code_label(LabelType type);
@@ -210,9 +210,6 @@ code_binop(BinopType type, Expression dst, Expression a, Expression b);
 
 void
 code_call(Expression func);
-
-void
-code_compare(CompareType type, Expression a, Expression b);
 
 void
 code_load(Expression dst, Expression src);

@@ -20,11 +20,12 @@ StringC	register_names[REG_ENUM_MAX] =
 	[REG_EBP] = "ebp",
 };
 
-StringC jump_ccs[COMP_ENUM_MAX] =
+StringC jump_ccs[BINOP_COMP_ENUM_MAX] =
 {
-	[COMP_NONE]	= "jmp",
-	[COMP_E]	= "je",
-	[COMP_NE]	= "jne",
+	[BINOP]		= "jmp",
+	[BINOP_EQ]	= "je",
+	[BINOP_NE]	= "jne",
+	[BINOP_GT]	= "jg",
 };
 
 Expression
@@ -45,7 +46,7 @@ B_expression_variable(StringC name)
 	};
 
 	if (symbol->size > WORD_SIZE)
-	{	
+	{
 		Register	tmp = register_alloc(REG_NULL);
 	
 		code_load(REG(tmp), var);
@@ -176,45 +177,44 @@ B_expression_assignment(AssignType type, Expression lhs, Expression rhs)
 			break;
 		case ASSIGN_OP_PLUS:
 		case ASSIGN_OP_MINUS:
+		{
+			if (rhs.type == EXPR_MEMORY && lhs.type == EXPR_MEMORY)
+			{
+				Register	tmp = register_alloc(REG_NULL);
+
+				code_move(REG(tmp), rhs);
+				rhs = REG(tmp);
+			}
 			code_binop((BinopType)type, lhs, lhs, rhs);
 			break ;
+		}
 		default:
 			BTODO("handle assignment + operator.");
 	}
-
-	if (lhs.type == EXPR_REGISTER)
-		register_free(lhs.reg);
-	if (lhs.type == EXPR_MEMORY && lhs.mem.base <= REG_USABLE)
-	{
-		register_free(lhs.mem.base);
-		register_free(lhs.mem.index);
-	}
-
 	return (lhs);
 }
 
 Expression
 B_expression_binop(BinopType type, Expression a, Expression b)
 {
-	Expression	dst = REG(register_alloc(REG_NULL));
+	Expression	dst = {0};
 
+	if (type >= BINOP_LSHIFT)
+		dst = REG(register_alloc(REG_NULL));
+	else
+		dst = (Expression) { .comparison = type };
 	code_binop(type, dst, a, b);
-	
-	if (a.type == EXPR_REGISTER)
-		register_free(a.reg);
-	if (b.type == EXPR_REGISTER)
-		register_free(b.reg);
-
 	return (dst);
 }
 
 Expression
 B_expression_subscript(Expression arr, Expression idx)
 {
-	Register	r = register_alloc(REG_NULL);
+	Register	r;
 
 	if (arr.type != EXPR_REGISTER)
 	{
+		r = register_alloc(REG_NULL);
 		code_move(REG(r), arr);
 		arr = REG(r);
 	}
@@ -245,10 +245,6 @@ B_expression_subscript(Expression arr, Expression idx)
 		default:
 			B_error(ERROR_ASM, "invalid subscript index.");
 	}
-
-//	register_free(r);
-	register_free(tmp);
-
 	return (addr);
 }
 
@@ -286,9 +282,9 @@ B_builtin_char(Expression str, Expression idx)
 	}
 	Register	result = register_alloc(REG_NULL);
 
-	register_free(r);
-	register_free(tmp);
-	register_free(str.reg);
+// 	register_free(r);
+// 	register_free(tmp);
+// 	register_free(str.reg);
 
 	asm_movzx(result, from);
 
@@ -342,4 +338,14 @@ B_expression_decr(Expression e)
 	B_expression_assignment(ASSIGN_OP_MINUS, e, IMM(1));
 
 	return (REG(tmp));
+}
+
+Expression
+B_expression_compare(BinopType t, Expression a, Expression b)
+{
+	switch (t)
+	{
+		default:
+			B_error(ERROR_ASM, "todo: more comparisons");
+	}
 }

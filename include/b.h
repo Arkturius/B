@@ -141,7 +141,6 @@ B_error_opt(ErrorType t, StringC fmt, ...);
 
 # define	B_error(_t, ...)	B_error_opt(_t, ##__VA_ARGS__)
 
-
 void
 B_program_start(void);
 

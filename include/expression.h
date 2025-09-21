@@ -8,10 +8,23 @@
 # include <types.h>
 # include <symbols.h>
 
+typedef i32							Immediate;
 typedef enum	_bregister			Register;
 typedef struct	_bregister_state	RegState;
 typedef struct	_bregister_frame	RegFrame;
-# define	REG(_s)	((Expression){.type = EXPR_REGISTER, .reg = _s})
+typedef struct	_bmemory			Memory;
+typedef struct	_bexpression		Expression;
+
+typedef enum	_bexpr_type			ExpressionType;
+typedef enum	_bbinop_type		BinopType;
+typedef enum 	_bassign_type		AssignType;
+typedef enum 	_bcompare_type		CompareType;
+
+# define	IMM(_i)			((Expression){.type = EXPR_IMMEDIATE, .imm = _i})
+# define	REG(_s)			((Expression){.type = EXPR_REGISTER, .reg = _s})
+# define	MEM(...)		(Memory){ __VA_ARGS__ }
+# define	MEM_STACK(_o)	MEM( .base = REG_EBP, .displacement = _o )
+# define	SYM(_s)			((Expression){.type = EXPR_SYMBOL, .sym = _s})
 
 typedef enum _bregister
 {
@@ -66,11 +79,6 @@ register_frame_push(void);
 void
 register_frame_pop(void);
 
-
-typedef struct	_bmemory	Memory;
-# define	MEM(...)		(Memory){ __VA_ARGS__ }
-# define	MEM_STACK(_o)	MEM( .base = REG_EBP, .displacement = _o )
-
 struct _bmemory
 {
 	Register	base;
@@ -80,8 +88,6 @@ struct _bmemory
 	u32			size;
 };
 
-typedef i32			Immediate;
-# define	IMM(_i)	((Expression){.type = EXPR_IMMEDIATE, .imm = _i})
 
 enum _bexpr_type
 {
@@ -93,27 +99,6 @@ enum _bexpr_type
 	EXPR_ENUM_MAX,
 };
 
-# define	SYM(_s)	((Expression){.type = EXPR_SYMBOL, .sym = _s})
-
-typedef struct	_bexpression	Expression;
-typedef enum	_bexpr_type		ExpressionType;
-
-struct _bexpression
-{
-	ExpressionType	type;
-	union
-	{
-		u32			imm;
-		Register	reg;
-		StringC		sym;
-	};
-	Memory			mem;
-};
-
-arr_decl(Expression, Expressions);
-
-typedef enum _bbinop_type	BinopType;
-
 enum _bbinop_type
 {
     BINOP,
@@ -123,7 +108,8 @@ enum _bbinop_type
     BINOP_GE,
     BINOP_LT,
     BINOP_GT,
-    BINOP_LSHIFT,
+	BINOP_COMP_ENUM_MAX,
+    BINOP_LSHIFT = BINOP_COMP_ENUM_MAX,
     BINOP_RSHIFT,
     BINOP_OR,
     BINOP_AND,
@@ -133,8 +119,6 @@ enum _bbinop_type
     BINOP_DIV,
     BINOP_MOD,
 };
-
-typedef enum _bassign_type	AssignType;
 
 enum _bassign_type
 {
@@ -158,18 +142,22 @@ enum _bassign_type
 	ASSIGN_ENUM_MAX,
 };
 
-typedef enum _bcompare_type	CompareType;
-
-enum _bcompare_type
+struct _bexpression
 {
-	COMP_NONE,
-	COMP_E,
-	COMP_NE,
-
-	COMP_ENUM_MAX,
+	ExpressionType	type;
+	union
+	{
+		u32			imm;
+		Register	reg;
+		StringC		sym;
+	};
+	Memory			mem;
+	BinopType		comparison;
 };
 
-extern StringC	jump_ccs[COMP_ENUM_MAX];
+arr_decl(Expression, Expressions);
+
+extern StringC	jump_ccs[BINOP_COMP_ENUM_MAX];
 # define	JCC(_j)	jump_ccs[(_j)]
 
 Expression

@@ -141,8 +141,13 @@ compound_statement
 	;
 
 statement_list
-	: statement_list statement
-	| statement
+	: statement_list statement_cleanup
+	| statement_cleanup
+	;
+
+statement_cleanup
+	: statement 
+		{ for (u32 i = 0; i < 6; ++i) { register_free(i); } }
 	;
 
 statement
@@ -159,12 +164,16 @@ statement
 		{ B_while_stop(); }
 	| switch_statement
 	| label_statement
+	| BREAK SEMI
+		{ B_break(); }
 	| GOTO NAME SEMI
 		{ B_goto($2); }
-	| RETURN LPAREN expr RPAREN SEMI
+	| RETURN LPAREN expr RPAREN
 		{ B_return_expr($3); }
-	| RETURN SEMI
+	  SEMI
+	| RETURN
 		{ B_return_expr((Expression){0}); }
+	  SEMI
 	| SEMI
 	| compound_statement
 	;
@@ -257,6 +266,7 @@ expr_logical_and
 expr_equality
 	: expr_relational
 	| expr_equality EQ expr_relational
+		{ $$ = B_expression_binop(BINOP_EQ, $1, $3); }
 	| expr_equality NE expr_relational
 	;
 
@@ -265,6 +275,7 @@ expr_relational
 	| expr_relational LT expr_shift
 	| expr_relational LE expr_shift
 	| expr_relational GT expr_shift
+		{ $$ = B_expression_binop(BINOP_GT, $1, $3); }
 	| expr_relational GE expr_shift
 	;
 
@@ -286,7 +297,9 @@ expr_multiplicative
 	: expr_unary
 	| expr_multiplicative MULT expr_unary
 	| expr_multiplicative DIV expr_unary
+		{ $$ = B_expression_binop(BINOP_DIV, $1, $3); }
 	| expr_multiplicative MOD expr_unary
+		{ $$ = B_expression_binop(BINOP_MOD, $1, $3); }
 	;
 
 /* TODO: Handle expression passing, those are to avoid type clashes. */
@@ -298,8 +311,10 @@ expr_unary
 		{ $$ = B_expression_address($2); }
 	| MINUS expr_unary %prec UMINUS		{ $$ = $2; }
 	| NOT expr_unary %prec UNOT			{ $$ = $2; }
-	| INCR expr_unary					{ $$ = $2; }
-	| DECR expr_unary					{ $$ = $2; }
+	| INCR expr_unary
+		{ $$ = B_expression_assignment(ASSIGN_OP_PLUS, $2, IMM(1)); }
+	| DECR expr_unary
+		{ $$ = B_expression_assignment(ASSIGN_OP_MINUS, $2, IMM(1)); }
 	;
 
 expr_postfix

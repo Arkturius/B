@@ -7,7 +7,7 @@ strlen(s)
 	auto	i;
 
 	i = 0;
-	while (char(s, i)) i++;
+	while (char(s, i)) ++i;
 	return (i);
 }
 
