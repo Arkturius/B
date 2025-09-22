@@ -100,7 +100,7 @@ B_return_expr(Expression ret)
 {
 	if (ret.type != EXPR_REGISTER || ret.reg != REG_NULL)
 		code_move(EAX, ret);
-	code_jump(COMP_NONE, LABEL_FUNC_STOP, NULL);
+	code_jump(BINOP, LABEL_FUNC_STOP, NULL);
 }
 
 void
@@ -150,25 +150,26 @@ B_while_start(void)
 void
 B_while_condition(Expression cond)
 {
-	Register	tmp = cond.reg;
-
-	if (cond.type != EXPR_REGISTER)
-	{
-		tmp = register_alloc(REG_NULL);
-		code_move(REG(tmp), cond);
-	}
-	code_compare(COMP_E, REG(tmp), REG(tmp));
-	code_jump(COMP_E, LABEL_LOOP_STOP, NULL);
+	code_jump(cond.comparison, LABEL_LOOP_STOP, NULL);
 }
 
 void
 B_while_stop(void)
 {
-	code_jump(COMP_NONE, LABEL_LOOP_START, NULL);
+	code_jump(BINOP, LABEL_LOOP_START, NULL);
 	code_label(LABEL_LOOP_STOP);
 
 	B_label_pop(LABEL_LOOP_START);
 	B_label_pop(LABEL_LOOP_STOP);
+}
+
+void
+B_break(void)
+{
+	if (arr_count(B.labels.grid[LABEL_LOOP_START]))
+		B_error(ERROR_SYNTAX, "break outside of a while loop.");
+
+	code_jump(BINOP, LABEL_LOOP_STOP, NULL);
 }
 
 void

@@ -2,8 +2,6 @@
  * symbols.c
  */
 
-#include "symbols.h"
-#include "arr.h"
 #include <b.h>
 #include <string.h>
 
@@ -20,7 +18,7 @@ B_auto_offset(Size sym_size)
 	if (sym_size == WORD_SIZE)
 		return (-(current->stack + WORD_SIZE));
 	else
-		return (-(current->stack + sym_size - WORD_SIZE));
+		return (-(current->stack + sym_size));
 }
 
 static inline Offset

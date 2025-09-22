@@ -175,6 +175,7 @@ ASM_BINARY_OP_IMPL(mov);
 ASM_BINARY_OP_IMPL(add);
 ASM_BINARY_OP_IMPL(sub);
 ASM_BINARY_OP_IMPL(and);
+ASM_BINARY_OP_IMPL(xor);
 
 ASM_BINARY_OP_IMPL(cmp);
 ASM_BINARY_OP_IMPL(test);
@@ -334,6 +335,12 @@ asm_mov(Expression dst, Expression src)
 	if (dst.type == EXPR_MEMORY && src.type == EXPR_MEMORY)
 		B_error(ERROR_ASM, "'mov': memory to memory not supported.");
 
+	if (src.type == EXPR_IMMEDIATE && src.imm == 0 && dst.type == EXPR_REGISTER)
+	{
+		emit_xor_reg_reg(dst.reg, dst.reg);
+		return ;
+	}
+
 	ASM_DISPATCH_BINARY(dst, src, mov);
 }
 
@@ -406,9 +413,9 @@ asm_ret(void)
 }
 
 void
-asm_jump(CompareType type, StringC lbl)
+asm_jump(BinopType type, StringC lbl)
 {
-	if (type >= COMP_ENUM_MAX)
+	if (type >= BINOP_COMP_ENUM_MAX)
 		B_error(ERROR_ASM, "invalid jump condition type.");
 
 	emit_jmp(JCC(type), lbl);
@@ -559,16 +566,16 @@ code_move(Expression dst, Expression src)
 		asm_mov(REG(tmp), src);
 		asm_mov(dst, REG(tmp));
 
-		register_free(tmp);
+//		register_free(tmp);
 	}
 	else
 		asm_mov(dst, src);
-	if (src.type == EXPR_REGISTER && src.reg <= REG_USABLE)
-		register_free(src.reg);
+// 	if (src.type == EXPR_REGISTER && src.reg <= REG_USABLE)
+// 		register_free(src.reg);
 }
 
 void
-code_jump(CompareType cond, LabelType type, StringC lbl)
+code_jump(BinopType cond, LabelType type, StringC lbl)
 {
 	if (lbl)
 	{
@@ -597,7 +604,8 @@ code_label(LabelType type)
 void
 code_binop(BinopType type, Expression dst, Expression a, Expression b)
 {
-	code_move(dst, a);
+	if (type >= BINOP_LSHIFT)
+		code_move(dst, a);
 	switch (type)
 	{
 		case BINOP_PLUS:
@@ -609,8 +617,13 @@ code_binop(BinopType type, Expression dst, Expression a, Expression b)
 		case BINOP_AND:
 			asm_and(dst, b);
 			break ;
+
+		case BINOP_EQ:
+		case BINOP_GT:
+			asm_cmp(a, b);
+			break ;
 		default:
-			B_error(ERROR_SYNTAX, "invalid binop type.");
+			B_error(ERROR_SYNTAX, "invalid binop type. %d", type);
 	}
 }
 
@@ -624,24 +637,10 @@ code_call(Expression func)
 		tmp = register_alloc(REG_NULL);
 		asm_mov(REG(tmp), func);
 		asm_call(REG(tmp));
-		register_free(tmp);
+//		register_free(tmp);
 	}
 	else
 		asm_call(func);
-}
-
-void
-code_compare(CompareType type, Expression a, Expression b)
-{
-	switch (type)
-	{
-		case COMP_E:
-		case COMP_NE:
-			asm_test(a, b);
-			break ;
-		default:
-			BTODO("more CompareType s.");
-	}
 }
 
 void
@@ -651,9 +650,9 @@ code_load(Expression dst, Expression src)
 
 	asm_load(dst.reg, src.mem);
 }
-
-void
-code_deref(Expression dst, Expression src)
-{
-	asm_mov(dst, src);
-}
+// 
+// void
+// code_deref(Expression dst, Expression src)
+// {
+// 	asm_mov(dst, src);
+// }
