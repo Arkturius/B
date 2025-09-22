@@ -27,6 +27,8 @@ yyerror(const char *s);
 
 # define	WORD_SIZE	4
 
+arr_decl(Offset, Offsets);
+
 typedef struct _bcompiler	Compiler;
 typedef struct _bscope		Scope;
 typedef struct _bfunction	Function;
@@ -48,8 +50,8 @@ typedef enum _blabel_type
 	LABEL_FUNC_STOP,
 	LABEL_LOOP_START,
 	LABEL_LOOP_STOP,
-	LABEL_IF_STOP,
-	LABEL_ELSE_START,
+	LABEL_SKIP_IF,
+	LABEL_SKIP_ELSE,
 
 	LABEL_ENUM_MAX,
 }	LabelType;
@@ -67,7 +69,7 @@ arr_decl(Label,	Labels);
 
 typedef struct _blabel_grid
 {
-	Labels	grid[LABEL_ENUM_MAX - 1];
+	Labels	grid[LABEL_ENUM_MAX];
 	Size	next_id;
 }	LabelGrid;
 
@@ -102,10 +104,16 @@ struct _bcompiler
 
 	Symbols		symbols;
 	RoStrings	rostrings;
+	
 	Scopes		scopes;
+	
 	RegFrame	frame;
+	
 	Function	function;
+
 	Expressions	arguments;
+	Offsets		arities;
+	
 	LabelGrid	labels;
 };
 
@@ -159,6 +167,15 @@ B_symbol_new(SymbolType type, StringC name, Size size);
 
 void
 B_return_expr(Expression ret);
+
+void
+B_if_start(Expression cond);
+
+void
+B_if_stop(bool is_else);
+
+void
+B_else_stop(void);
 
 void
 B_while_start(void);

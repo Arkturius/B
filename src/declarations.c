@@ -51,13 +51,25 @@ B_function_call(Expression call)
 	if (call.type == EXPR_IMMEDIATE)
 		B_error(ERROR_ASM, "can't call on immediate values.'");
 
-	Offset	arg_off = arr_count(B.arguments) * WORD_SIZE;
+	Size	arity    = *arr_last(B.arities);
+	Offset	arg_off  = arity * WORD_SIZE;
 	Offset	off_save = arg_off;
 
 	asm_sub(ESP, IMM(arg_off)); // TODO : use last arg slots if needed;
 
-	arr_foreach_rev(Expression, arg, B.arguments)
+	Expressions	call_args =
 	{
+		.count = arity,
+		.capacity = arity,
+		.items = arr_last(B.arguments) - arity + 1,
+	};
+
+	BLOG("global argument list: %p", arr_first(B.arguments));
+	BLOG("call_args = { .count = %d, .items = %p }", call_args.count, call_args.items);
+
+	arr_foreach_rev(Expression, arg, call_args)
+	{
+		BLOG("current arg = %p", arg);
 		arg_off -= WORD_SIZE;
 		Expression	arg_slot = 
 		{
@@ -70,7 +82,9 @@ B_function_call(Expression call)
 		};
 		code_move(arg_slot, *arg);
 	}
-	arr_count(B.arguments) = 0;
+//	arr_count(B.arguments) = 0;
+	arr_pop(B.arguments, arity);
+	arr_pop(B.arities, 1);
 
 	code_call(call);
 	
@@ -85,14 +99,23 @@ B_function_call(Expression call)
 
 	if (arr_count(B.labels.grid[LABEL_LOOP_START]) > 0)
 		asm_add(ESP, IMM(off_save)); // TODO: make the immediate offset match what was added before call
-
 	return (ret);
+}
+
+void
+B_function_invoke(void)
+{
+	arr_append(B.arities, 0);
+	BLOG("function invokation, new argument list starting...");
 }
 
 void
 B_function_argument(Expression arg)
 {
+	*arr_last(B.arities) += 1;
 	arr_append(B.arguments, arg);
+
+	BLOG("adding argument to list. new arity = %d", *arr_last(B.arities));
 }
 
 static void

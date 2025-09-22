@@ -15,5 +15,5 @@ printf(s)
 {
 	extrn	syscall;
 
-	return(syscall(4, 1, s, strlen(s)))
+	return(syscall(4, 1, s, strlen(s)));
 }

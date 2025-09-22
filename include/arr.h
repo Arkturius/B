@@ -57,7 +57,7 @@
 			new_capacity = (_arr.capacity << 1);							\
 		if (new_capacity)													\
 		{																	\
-			_arr.items = realloc(											\
+			(_arr).items = realloc(											\
 				arr_first(_arr),											\
 				new_capacity * sizeof *arr_first(_arr)						\
 			);																\

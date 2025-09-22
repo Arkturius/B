@@ -192,8 +192,17 @@ extrn_decl
 	;
 
 if_statement
-	: IF LPAREN expr RPAREN statement %prec LOWER_THAN_ELSE
-	| IF LPAREN expr RPAREN statement ELSE statement
+	: if_start statement %prec LOWER_THAN_ELSE
+		{ B_if_stop(false); }
+	| if_start statement ELSE 
+		{ B_if_stop(true); }
+	  statement
+		{ B_else_stop(); }
+	;
+
+if_start
+	: IF LPAREN expr RPAREN
+		{ B_if_start($3); }
 	;
 
 switch_statement
@@ -298,8 +307,10 @@ expr_unary
 		{ $$ = B_expression_address($2); }
 	| MINUS expr_unary %prec UMINUS		{ $$ = $2; }
 	| NOT expr_unary %prec UNOT			{ $$ = $2; }
-	| INCR expr_unary					{ $$ = $2; }
-	| DECR expr_unary					{ $$ = $2; }
+	| INCR expr_unary
+		{ $$ = B_expression_assignment(ASSIGN_OP_PLUS, $2, IMM(1)); }
+	| DECR expr_unary
+		{ $$ = B_expression_assignment(ASSIGN_OP_PLUS, $2, IMM(1)); }
 	;
 
 expr_postfix
@@ -311,10 +322,14 @@ expr_postfix
 		{ $$ = B_expression_decr($1); }
 	| expr_postfix LBRACKET expr RBRACKET
 		{ $$ = B_expression_subscript($1, $3); }
-	| expr_postfix LPAREN argument_list RPAREN
+	| expr_postfix call_start LPAREN argument_list RPAREN
 		{ $$ = B_function_call($1); }
-	| expr_postfix LPAREN RPAREN
+	| expr_postfix call_start LPAREN RPAREN
 		{ $$ = B_function_call($1); }
+	;
+
+call_start
+	: { B_function_invoke(); }
 	;
 
 expr_builtin

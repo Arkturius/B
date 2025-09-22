@@ -104,6 +104,41 @@ B_return_expr(Expression ret)
 }
 
 void
+B_if_start(Expression cond)
+{
+	B_label_push(LABEL_SKIP_IF);
+
+	Register	tmp = cond.reg;
+
+	if (cond.type != EXPR_REGISTER)
+	{
+		tmp = register_alloc(REG_NULL);
+		code_move(REG(tmp), cond);
+	}
+	code_compare(COMP_E, REG(tmp), REG(tmp));
+	code_jump(COMP_E, LABEL_SKIP_IF, NULL);
+}
+
+void
+B_if_stop(bool is_else)
+{
+	if (is_else)
+	{
+		B_label_push(LABEL_SKIP_ELSE);
+		code_jump(COMP_NONE, LABEL_SKIP_ELSE, NULL);
+	}
+	code_label(LABEL_SKIP_IF);
+	B_label_pop(LABEL_SKIP_IF);
+}
+
+void
+B_else_stop(void)
+{
+	code_label(LABEL_SKIP_ELSE);
+	B_label_pop(LABEL_SKIP_ELSE);
+}
+
+void
 B_while_start(void)
 {
 	B_label_push(LABEL_LOOP_START);
