@@ -17,7 +17,17 @@ $(NAME):	$(OBJS)
 	@echo " ■  archiving	$@"
 	@ar -rcs $@.a $^
 
-$(OBJ_DIR)/%.o:	%.b
+$(OBJ_DIR)/%.s:	%.b
 	@mkdir -p $(@D)
-	@.././B $< > $<.s
-	@gcc -c -m32 -x assembler $<.s -o $@
+	@.././B $< > $@
+
+$(OBJ_DIR)/%.o: $(OBJ_DIR)/%.s
+	@gcc -c -m32 -x assembler $< -o $@
+
+clean:
+	@rm -rf $(NAME).a
+
+fclean:		clean
+	@rm -rf $(OBJ_DIR)
+
+re:			fclean all

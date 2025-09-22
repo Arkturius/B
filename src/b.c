@@ -30,6 +30,8 @@ B_compiler_stop(void)
 	arr_destroy(B.symbols);
 	arr_destroy(B.scopes);
 
+	B_arena_free();
+
     return (true);
 }
 
@@ -65,6 +67,7 @@ B_error_opt(ErrorType t, StringC fmt, ...)
 	vfprintf(stderr, fmt, ap);
 	va_end(ap);
 
+	B_compiler_stop();
 	exit(1);
 }
 

@@ -1,9 +1,13 @@
 open(filename, mode)
 {
-	extrn syscall;
+	extrn	syscall;
+	auto	fd;
 
 	if (mode)
-		return (syscall(0x05, filename, 1));
+		fd = syscall(0x05, filename, 1);
 	else
-		return (syscall(0x05, filename, 0));
+		fd = syscall(0x05, filename, 0);
+	if (fd < 0)
+		return (-1); /* ERRNO my beloved */
+	return (fd);
 }

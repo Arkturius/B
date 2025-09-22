@@ -160,6 +160,11 @@ arr_decl(Expression, Expressions);
 extern StringC	jump_ccs[BINOP_COMP_ENUM_MAX];
 # define	JCC(_j)	jump_ccs[(_j)]
 
+BinopType
+B_switch_comparison(BinopType cond);
+
+
+
 Expression
 B_expression_variable(StringC name);
 

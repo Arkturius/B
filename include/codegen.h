@@ -97,10 +97,16 @@ void																		\
 emit_##_instr##_reg_mem(Register dst, Memory src);							\
 																			\
 void																		\
+emit_##_instr##_reg_sym(Register dst, StringC src);							\
+																			\
+void																		\
 emit_##_instr##_mem_imm(Memory dst, Immediate src);							\
 																			\
 void																		\
 emit_##_instr##_mem_reg(Memory dst, Register src);							\
+																			\
+void																		\
+emit_##_instr##_mem_sym(Memory dst, StringC src);							\
 
 # define	ASM_BINARY_OP_IMPL(_instr)										\
 																			\
@@ -157,6 +163,11 @@ emit_##_instr##_mem_sym(Memory dst, StringC src)							\
 ASM_BINARY_OP_DECL(mov)
 ASM_BINARY_OP_DECL(add)
 ASM_BINARY_OP_DECL(sub)
+ASM_BINARY_OP_DECL(and)
+ASM_BINARY_OP_DECL(xor)
+
+ASM_BINARY_OP_DECL(cmp)
+ASM_BINARY_OP_DECL(test)
 
 void
 emit_ret_imm(Immediate imm);
@@ -183,6 +194,8 @@ asm_mov(Expression dst, Expression src);
 void
 asm_movzx(Register dst, Memory src);
 
+void
+asm_test(Expression a, Expression b);
 
 void
 asm_add(Expression dst, Expression add);
@@ -219,6 +232,9 @@ register_alloc(Register wanted);
 
 void
 register_free(Register reg);
+
+Register
+register_spill(Register wanted);
 
 void
 register_restore(Register wanted);

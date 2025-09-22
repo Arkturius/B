@@ -86,7 +86,7 @@
 %type<e>	expr_multiplicative
 %type<e>	expr_unary
 %type<e>	expr_postfix
-%type<e>	expr_builtin
+%type<e>	expr_builtin_val
 %type<e>	expr_primary
 %type<e>	argument_list
 %type<e>	argument
@@ -146,8 +146,11 @@ statement_list
 	;
 
 statement_cleanup
-	: statement 
-		{ for (u32 i = 0; i < 6; ++i) { register_free(i); } }
+	: statement cleanup
+	;
+
+cleanup
+	: { for (u32 i = 0; i < 6; ++i) { register_free(i); } }
 	;
 
 statement
@@ -158,7 +161,7 @@ statement
 	| if_statement
 	| WHILE 
 		{ B_while_start(); }
-      LPAREN expr RPAREN 
+      LPAREN expr RPAREN cleanup
 		{ B_while_condition($4); }
       statement
 		{ B_while_stop(); }
@@ -176,6 +179,8 @@ statement
 	  SEMI
 	| SEMI
 	| compound_statement
+	| F_LCHAR LPAREN expr COMMA expr COMMA expr RPAREN
+		{ B_builtin_lchar($3, $5, $7); }
 	;
 
 auto_decl_list
@@ -203,14 +208,14 @@ extrn_decl
 if_statement
 	: if_start statement %prec LOWER_THAN_ELSE
 		{ B_if_stop(false); }
-	| if_start statement ELSE 
+	| if_start statement ELSE cleanup
 		{ B_if_stop(true); }
 	  statement
 		{ B_else_stop(); }
 	;
 
 if_start
-	: IF LPAREN expr RPAREN
+	: IF LPAREN expr RPAREN cleanup
 		{ B_if_start($3); }
 	;
 
@@ -282,10 +287,13 @@ expr_equality
 expr_relational
 	: expr_shift
 	| expr_relational LT expr_shift
+		{ $$ = B_expression_binop(BINOP_LT, $1, $3); }
 	| expr_relational LE expr_shift
+		{ $$ = B_expression_binop(BINOP_LE, $1, $3); }
 	| expr_relational GT expr_shift
 		{ $$ = B_expression_binop(BINOP_GT, $1, $3); }
 	| expr_relational GE expr_shift
+		{ $$ = B_expression_binop(BINOP_GE, $1, $3); }
 	;
 
 expr_shift
@@ -328,7 +336,7 @@ expr_unary
 
 expr_postfix
 	: expr_primary
-	| expr_builtin
+	| expr_builtin_val
 	| expr_postfix INCR
 		{ $$ = B_expression_incr($1); }
 	| expr_postfix DECR
@@ -345,9 +353,9 @@ call_start
 	: { B_function_invoke(); }
 	;
 
-expr_builtin
-	: F_CHAR LPAREN expr COMMA expr RPAREN				{ $$ = B_builtin_char($3, $5); }
-	| F_LCHAR LPAREN expr COMMA expr COMMA expr RPAREN	{ $$ = $3; }
+expr_builtin_val
+	: F_CHAR LPAREN expr COMMA expr RPAREN
+		{ $$ = B_builtin_char($3, $5); }
 	;
 
 expr_primary

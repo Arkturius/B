@@ -51,6 +51,12 @@ B_arena_erase(Size size)
 	_bstring_off -= size;
 }
 
+void
+B_arena_free(void)
+{
+	free(_bstring_arena);
+}
+
 StringC
 B_asprintf(StringC fmt, ...)
 {

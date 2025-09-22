@@ -20,12 +20,27 @@ StringC	register_names[REG_ENUM_MAX] =
 	[REG_EBP] = "ebp",
 };
 
+StringC	register_bytes[REG_ENUM_MAX] = 
+{
+	[REG_EDX] = "dl",
+	[REG_EAX] = "al",
+	[REG_ECX] = "cl",
+	[REG_EBX] = "bl",
+	[REG_EDI] = "edi",
+	[REG_ESI] = "esi",
+	[REG_ESP] = "esp",
+	[REG_EBP] = "ebp",
+};
+
 StringC jump_ccs[BINOP_COMP_ENUM_MAX] =
 {
 	[BINOP]		= "jmp",
 	[BINOP_EQ]	= "je",
 	[BINOP_NE]	= "jne",
 	[BINOP_GT]	= "jg",
+	[BINOP_GE]	= "jge",
+	[BINOP_LT]	= "jl",
+	[BINOP_LE]	= "jle",
 };
 
 Expression
@@ -200,10 +215,33 @@ B_expression_binop(BinopType type, Expression a, Expression b)
 	Expression	dst = {0};
 
 	if (type >= BINOP_LSHIFT)
-		dst = REG(register_alloc(REG_NULL));
+	{
+		if (type == BINOP_MULT || type == BINOP_DIV || type == BINOP_MOD)
+		{
+			register_alloc(REG_EDX);
+			dst = REG(register_alloc(REG_EAX));
+		}
+		else if (a.type != EXPR_REGISTER)
+			dst = REG(register_alloc(REG_NULL));
+		else
+			dst = a;
+	}
 	else
+	{
 		dst = (Expression) { .comparison = type };
+	
+		if (a.type == EXPR_IMMEDIATE && b.type != EXPR_IMMEDIATE)
+		{
+			Expression tmp;
+
+			tmp = a;
+			a = b;
+			b = tmp;
+			dst.comparison = B_switch_comparison(type);
+		}
+	}
 	code_binop(type, dst, a, b);
+	register_restore(REG_EDX);
 	return (dst);
 }
 
@@ -248,7 +286,6 @@ B_expression_subscript(Expression arr, Expression idx)
 	return (addr);
 }
 
-
 Expression
 B_builtin_char(Expression str, Expression idx)
 {
@@ -282,13 +319,68 @@ B_builtin_char(Expression str, Expression idx)
 	}
 	Register	result = register_alloc(REG_NULL);
 
-// 	register_free(r);
-// 	register_free(tmp);
-// 	register_free(str.reg);
-
 	asm_movzx(result, from);
 
 	return (REG(result));
+}
+
+void
+B_builtin_lchar(Expression str, Expression idx, Expression nchar)
+{
+	Register	r = register_alloc(REG_NULL);
+
+	if (str.type != EXPR_REGISTER)
+	{
+		code_move(REG(r), str);
+		str.reg = r;
+	}
+
+	Memory		to  = MEM(.base = str.reg, .size = 1);
+	Register	tmp = idx.reg;
+
+	switch (idx.type)
+	{
+		case EXPR_IMMEDIATE:
+			to.displacement = idx.imm;
+			break ;
+		case EXPR_MEMORY:
+		{
+			tmp = register_alloc(REG_NULL);
+			code_move(REG(tmp), idx);
+		}
+		/* fallthrough */
+		case EXPR_REGISTER:
+			to.index = tmp;
+			break ;
+		default:
+			B_error(ERROR_ASM, "builtin_lchar: invalid string index.");
+	}
+
+	Register	new = register_alloc(REG_NULL);
+
+	switch (nchar.type)
+	{
+		case EXPR_MEMORY:
+			code_move(REG(new), nchar);
+			nchar.reg = new;
+		/* fallthrough */
+		case EXPR_REGISTER:
+			emit_and_reg_imm(nchar.reg, 0xff);
+			if (nchar.reg > REG_EBX)
+			{
+				register_spill(REG_ECX);
+				code_move(ECX, nchar);
+				nchar.reg = REG_ECX;
+			}
+			emit_mov_mem_sym(to, register_bytes[nchar.reg]);
+			break ;
+		case EXPR_IMMEDIATE:
+			emit_mov_mem_imm(to, nchar.imm & 0xff);
+			break ;
+		default:
+			B_error(ERROR_ASM, "builtin_lchar: invalid new character.");
+	}
+	register_restore(REG_ECX);
 }
 
 Expression

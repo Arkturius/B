@@ -171,6 +171,20 @@ emit_pop_sym(StringC sym)
 	EMIT("pop", "%s", sym);
 }
 
+void
+emit_idiv_reg(Register reg)
+{
+	EMIT("idiv", "%s", register_names[reg]);
+}
+
+void
+emit_idiv_mem(Memory mem)
+{
+	StringC	div = emit_mem(mem, true);
+
+	EMIT("idiv", "%s", div);
+}
+
 ASM_BINARY_OP_IMPL(mov);
 ASM_BINARY_OP_IMPL(add);
 ASM_BINARY_OP_IMPL(sub);
@@ -184,6 +198,12 @@ void
 emit_ret()
 {
 	EMIT("ret", "");
+}
+
+void
+emit_cdq()
+{
+	EMIT("cdq", "");
 }
 
 void
@@ -371,6 +391,26 @@ asm_sub(Expression dst, Expression sub)
 }
 
 void
+asm_div(Expression div)
+{
+	if (div.type != EXPR_MEMORY && div.type != EXPR_REGISTER)
+		B_error(ERROR_ASM, "'idiv': operand not supported.");
+
+	emit_cdq();
+	switch (div.type)
+	{
+		case EXPR_REGISTER:
+			emit_idiv_reg(div.reg);
+			break ;
+		case EXPR_MEMORY:
+			emit_idiv_mem(div.mem);
+			break ;
+		default:
+			B_error(ERROR_ASM, "'idiv': invalid operand type.");
+	}
+}
+
+void
 asm_and(Expression a, Expression b)
 {
 	if (a.type == EXPR_MEMORY && b.type == EXPR_MEMORY)
@@ -439,7 +479,7 @@ register_spill_offset(void)
 
 	Offset	spill = -(current->stack + B.frame.spill);
 
-	B.frame.spill += WORD_SIZE;
+	current->stack += WORD_SIZE;
 	
 	return (spill);
 }
@@ -455,9 +495,7 @@ register_spill(Register wanted)
 		state->in_use = false;
 		state->spilled = true;
 
-		Memory	tmp = MEM_STACK(state->spill);
-
-		emit_mov_mem_reg(tmp, wanted);
+		emit_push_reg(wanted);
 	}
 	return (wanted);
 }
@@ -469,11 +507,10 @@ register_restore(Register wanted)
 
 	if (state->spilled)
 	{
-		Memory	mem = MEM_STACK(state->spill);
-
-		emit_mov_reg_mem(wanted, mem);
+		emit_pop_reg(wanted);
 
 		state->spilled = false;
+		state->in_use = true;
 	}
 }
 
@@ -570,13 +607,13 @@ code_move(Expression dst, Expression src)
 	}
 	else
 		asm_mov(dst, src);
-// 	if (src.type == EXPR_REGISTER && src.reg <= REG_USABLE)
-// 		register_free(src.reg);
+	if (src.type == EXPR_REGISTER && src.reg <= REG_USABLE)
+		register_free(src.reg);
 }
 
 void
 code_jump(BinopType cond, LabelType type, StringC lbl)
-{
+{	
 	if (lbl)
 	{
 		asm_jump(cond, lbl);
@@ -618,10 +655,41 @@ code_binop(BinopType type, Expression dst, Expression a, Expression b)
 			asm_and(dst, b);
 			break ;
 
+		case BINOP_DIV:
+		case BINOP_MOD:
+		{
+			Register	divisor;
+
+			if (b.type != EXPR_REGISTER && b.type != EXPR_MEMORY)
+			{
+				divisor = register_alloc(REG_NULL);
+
+				code_move(REG(divisor), b);
+				b = REG(divisor);
+			}
+			asm_div(b);
+			if (type == BINOP_MOD)
+				code_move(EAX, EDX);
+
+			break ;	
+		}
+
 		case BINOP_EQ:
 		case BINOP_GT:
+		case BINOP_GE:
+		case BINOP_LT:
+		case BINOP_LE:
+		{
+			if (a.type == EXPR_MEMORY && b.type == EXPR_MEMORY)
+			{
+				Register	tmp = register_alloc(REG_NULL);
+
+				code_move(REG(tmp), a);
+				a = REG(tmp);
+			}
 			asm_cmp(a, b);
 			break ;
+		}
 		default:
 			B_error(ERROR_SYNTAX, "invalid binop type. %d", type);
 	}

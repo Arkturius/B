@@ -3,6 +3,7 @@
  */
 
 #include "arr.h"
+#include "expression.h"
 #include <b.h>
 #include <codegen.h>
 
@@ -103,20 +104,47 @@ B_return_expr(Expression ret)
 	code_jump(BINOP, LABEL_FUNC_STOP, NULL);
 }
 
+BinopType
+B_switch_comparison(BinopType cond)
+{
+	switch (cond)
+	{
+		case BINOP:		return BINOP;
+		case BINOP_EQ:	return BINOP_NE;
+		case BINOP_NE:	return BINOP_EQ;
+		case BINOP_LE:	return BINOP_GT;
+		case BINOP_GE:	return BINOP_LT;
+		case BINOP_LT:	return BINOP_GE;
+		case BINOP_GT:	return BINOP_LE;
+		default:
+			B_error(ERROR_ASM, "invalid condition switch.");
+	}
+}
+
+Expression
+B_eval_expr(Expression cond)
+{
+	if (cond.comparison == BINOP)
+	{
+		Register	tmp = cond.reg;
+
+		if (cond.type != EXPR_REGISTER)
+			tmp = register_alloc(REG_NULL);
+		code_move(REG(tmp), cond);
+		asm_test(REG(tmp), REG(tmp));
+		cond.comparison = BINOP_NE;
+	}
+	cond.comparison = B_switch_comparison(cond.comparison);
+	return (cond);
+}
+
 void
 B_if_start(Expression cond)
 {
 	B_label_push(LABEL_SKIP_IF);
 
-	Register	tmp = cond.reg;
-
-	if (cond.type != EXPR_REGISTER)
-	{
-		tmp = register_alloc(REG_NULL);
-		code_move(REG(tmp), cond);
-	}
-	code_compare(COMP_E, REG(tmp), REG(tmp));
-	code_jump(COMP_E, LABEL_SKIP_IF, NULL);
+	cond = B_eval_expr(cond);
+	code_jump(cond.comparison, LABEL_SKIP_IF, NULL);
 }
 
 void
@@ -125,7 +153,7 @@ B_if_stop(bool is_else)
 	if (is_else)
 	{
 		B_label_push(LABEL_SKIP_ELSE);
-		code_jump(COMP_NONE, LABEL_SKIP_ELSE, NULL);
+		code_jump(BINOP, LABEL_SKIP_ELSE, NULL);
 	}
 	code_label(LABEL_SKIP_IF);
 	B_label_pop(LABEL_SKIP_IF);
@@ -150,6 +178,7 @@ B_while_start(void)
 void
 B_while_condition(Expression cond)
 {
+	cond = B_eval_expr(cond);
 	code_jump(cond.comparison, LABEL_LOOP_STOP, NULL);
 }
 
@@ -175,4 +204,5 @@ B_break(void)
 void
 B_goto(StringC name)
 {
+	// TODO : manage the cleaning of scopes...
 }

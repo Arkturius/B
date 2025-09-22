@@ -19,6 +19,10 @@ B_function_start(StringC name)
 
 	asm_push(EBP);
 	code_move(EBP, ESP);
+	asm_sub(ESP, IMM(3 * WORD_SIZE));
+// 	asm_push(EDI);
+// 	asm_push(EDI);
+// 	asm_push(EDI);
 }
 
 void
@@ -55,18 +59,23 @@ B_function_call(Expression call)
 	Offset	arg_off  = arity * WORD_SIZE;
 	Offset	off_save = arg_off;
 
-	asm_sub(ESP, IMM(arg_off)); // TODO : use last arg slots if needed;
-
 	Expressions	call_args =
 	{
 		.count = arity,
 		.capacity = arity,
 		.items = arr_last(B.arguments) - arity + 1,
 	};
+	
+	int	spill_eax = 0;
 
-	BLOG("global argument list: %p", arr_first(B.arguments));
-	BLOG("call_args = { .count = %d, .items = %p }", call_args.count, call_args.items);
+	arr_foreach_rev(Expression, arg, call_args)
+		spill_eax += (arg->type == EXPR_REGISTER && arg->reg == REG_EAX);
 
+	if (!spill_eax && B.frame.states[REG_EAX].in_use)
+		register_spill(REG_EAX);
+
+	asm_sub(ESP, IMM(arg_off)); // TODO : use last arg slots if needed;
+								//
 	arr_foreach_rev(Expression, arg, call_args)
 	{
 		BLOG("current arg = %p", arg);
@@ -82,23 +91,26 @@ B_function_call(Expression call)
 		};
 		code_move(arg_slot, *arg);
 	}
-//	arr_count(B.arguments) = 0;
 	arr_pop(B.arguments, arity);
 	arr_pop(B.arities, 1);
+
+//	asm("int3");
 
 	code_call(call);
 	
 	Expression	ret = EAX;
 	
+	B.frame.states[REG_EAX].in_use = true;
 	if (B.frame.states[REG_EAX].spilled)
 	{
 		ret = REG(register_alloc(REG_NULL));
 		code_move(ret, EAX);
-		register_restore(REG_EAX);
 	}
 
-	if (arr_count(B.labels.grid[LABEL_LOOP_START]) > 0)
-		asm_add(ESP, IMM(off_save)); // TODO: make the immediate offset match what was added before call
+	asm_add(ESP, IMM(off_save)); // TODO: make the immediate offset match what was added before call
+	
+	register_restore(REG_EAX);
+	
 	return (ret);
 }
 
@@ -106,7 +118,6 @@ void
 B_function_invoke(void)
 {
 	arr_append(B.arities, 0);
-	BLOG("function invokation, new argument list starting...");
 }
 
 void
@@ -114,8 +125,6 @@ B_function_argument(Expression arg)
 {
 	*arr_last(B.arities) += 1;
 	arr_append(B.arguments, arg);
-
-	BLOG("adding argument to list. new arity = %d", *arr_last(B.arities));
 }
 
 static void

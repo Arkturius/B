@@ -1,6 +1,6 @@
 putchar(c)
 {
-	extrn syscall;
+	extrn	syscall;
 
 	return (syscall(4, 1, &c, 1));
 }

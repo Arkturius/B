@@ -125,6 +125,9 @@ B_asprintf(StringC fmt, ...);
 void
 B_arena_erase(Size size);
 
+void
+B_arena_free(void);
+
 bool
 B_compiler_start(void);
 
