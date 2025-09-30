@@ -2,11 +2,24 @@
 	#include "bparser.h"
 	#include <stdlib.h>
 	#include <string.h>
+
+	int			b_col = 0;
+	const char	*b_row_start = NULL;
+	char		b_hold_char;
+
+	#define YY_USER_ACTION	{ b_col += yyleng; b_hold_char = yy_hold_char; }
 %}
 
 DIGIT       [0-9]
 ALPHA       [a-zA-Z_]
+
 CHAR        [^\n'\\]|\\[\\'\"nt0*)(]
+
+STRING		\"([^\\\n]|(\\.))\"
+
+ESCAPE			\*([0en\\t\*'\"])
+CHAR_IN_STR		([^"\n]|{ESCAPE})
+CHAR_IN_CHAR	([^'\n]|{ESCAPE})
 
 %option noyywrap
 %option noinput
@@ -14,36 +27,36 @@ CHAR        [^\n'\\]|\\[\\'\"nt0*)(]
 
 %%
 
-"auto"		return AUTO;
-"extrn"		return EXTERN;
-"if"		return IF;
-"else"		return ELSE;
-"switch"	return SWITCH;
-"case"		return CASE;
-"default"	return DEFAULT;
-"while"		return WHILE;
-"return"	return RETURN;
-"goto"		return GOTO;
-"break"		return BREAK;
+"auto"		{ return AUTO;    }
+"extrn"		{ return EXTERN;  }
+"if"		{ return IF;      }
+"else"		{ return ELSE;    }
+"switch"	{ return SWITCH;  }
+"case"		{ return CASE;    }
+"default"	{ return DEFAULT; }
+"while"		{ return WHILE;   }
+"return"	{ return RETURN;  }
+"goto"		{ return GOTO;    }
+"break"		{ return BREAK;   }
 
-"char"		return F_CHAR;
-"lchar"		return F_LCHAR;
+"char"		{ return F_CHAR;  }
+"lchar"		{ return F_LCHAR; }
 
-"==="		{ yylval.n = ASSIGN_EQ; return ASSIGN_EQ; }
-"=!="		{ yylval.n = ASSIGN_NE; return ASSIGN_NE; }
-"=<="		{ yylval.n = ASSIGN_LE; return ASSIGN_LE; }
-"=>="		{ yylval.n = ASSIGN_GE; return ASSIGN_GE; }
+"==="		{ yylval.n = ASSIGN_EQ;		return ASSIGN_EQ;     }
+"=!="		{ yylval.n = ASSIGN_NE; 	return ASSIGN_NE;     }
+"=<="		{ yylval.n = ASSIGN_LE; 	return ASSIGN_LE;     }
+"=>="		{ yylval.n = ASSIGN_GE; 	return ASSIGN_GE;     }
 "=<<"		{ yylval.n = ASSIGN_LSHIFT; return ASSIGN_LSHIFT; }
 "=>>"		{ yylval.n = ASSIGN_RSHIFT; return ASSIGN_RSHIFT; }
-"=<"		{ yylval.n = ASSIGN_LT; return ASSIGN_LT; }
-"=>"		{ yylval.n = ASSIGN_GT; return ASSIGN_GT; }
-"=|"		{ yylval.n = ASSIGN_OR; return ASSIGN_OR; }
-"=&"		{ yylval.n = ASSIGN_AND; return ASSIGN_AND; }
-"=+"		{ yylval.n = ASSIGN_PLUS; return ASSIGN_PLUS; }
-"=-"		{ yylval.n = ASSIGN_MINUS; return ASSIGN_MINUS; }
-"=*"		{ yylval.n = ASSIGN_MULT; return ASSIGN_MULT; }
-"=/"		{ yylval.n = ASSIGN_DIV; return ASSIGN_DIV; }
-"=%"		{ yylval.n = ASSIGN_MOD; return ASSIGN_MOD; }
+"=<"		{ yylval.n = ASSIGN_LT;		return ASSIGN_LT;     }
+"=>"		{ yylval.n = ASSIGN_GT; 	return ASSIGN_GT;     }
+"=|"		{ yylval.n = ASSIGN_OR; 	return ASSIGN_OR;     }
+"=&"		{ yylval.n = ASSIGN_AND;	return ASSIGN_AND;    }
+"=+"		{ yylval.n = ASSIGN_PLUS;	return ASSIGN_PLUS;   }
+"=-"		{ yylval.n = ASSIGN_MINUS;	return ASSIGN_MINUS;  }
+"=*"		{ yylval.n = ASSIGN_MULT;	return ASSIGN_MULT;   }
+"=/"		{ yylval.n = ASSIGN_DIV;	return ASSIGN_DIV;    }
+"=%"		{ yylval.n = ASSIGN_MOD;	return ASSIGN_MOD;    }
 
 "=="		return EQ;
 "!="		return NE;
@@ -82,20 +95,21 @@ CHAR        [^\n'\\]|\\[\\'\"nt0*)(]
 ";"			return SEMI;
 ","			return COMMA;
 
--?0[xX][0-9a-fA-F]+			{ yylval.n = strtol(yytext, NULL, 0); return CONSTANT; }
--?0?{DIGIT}+				{ yylval.n = strtol(yytext, NULL, 0); return CONSTANT; }
+-?0[xX][0-9a-fA-F]+				{ yylval.n = strtol(yytext, NULL, 0); return CONSTANT; }
+-?0?{DIGIT}+					{ yylval.n = strtol(yytext, NULL, 0); return CONSTANT; }
 
-'({CHAR}|{CHAR}{CHAR})'		{ yylval.s = strdup(yytext); return CHAR_CONSTANT; }
+'{CHAR_IN_CHAR}'				{ yylval.s = strdup(yytext); return CHAR_CONSTANT; } 
+'{CHAR_IN_CHAR}{CHAR_IN_CHAR}'	{ yylval.s = strdup(yytext); return CHAR_CONSTANT; }
 
-\"({CHAR}*)\"				{ yylval.s = strdup(yytext); return STR_CONSTANT; }
+\"{CHAR_IN_STR}*\"				{ yylval.s = strdup(yytext); return STR_CONSTANT; }
 
-{ALPHA}({ALPHA}|{DIGIT})*	{ yylval.s = strdup(yytext); return NAME; }
+{ALPHA}({ALPHA}|{DIGIT})*		{ yylval.s = strdup(yytext); return NAME; }
 
-[ \t]+						// Ignore whitespaces.
-\n							{ yylineno++; }
+[ \t]+							
+\n								{ yylineno++; b_row_start = yytext + yyleng; b_col = 1; }
 
-"/\*"([^*]|\*+[^*/])*\*+"/"	// Ignore comments.
+"/\*"([^*]|\*+[^*/])*\*+"/"
 
-.							{ return yytext[0]; } // Character fallback.
+.								{ if (!b_row_start) b_row_start = yytext; return yytext[0]; }
 
 %%

@@ -8,7 +8,8 @@
 # include <stdbool.h>
 # include <stdint.h>
 
-# include <arr.h>
+# define XLIB_NO_PREFIX
+# include <xlib.h>
 
 typedef uint64_t	u64;
 typedef uint32_t	u32;
@@ -30,8 +31,8 @@ typedef double		f64;
 typedef char        *String;
 typedef char const	*StringC;
 
-arr_decl(String,	Strings);
-arr_decl(StringC,	StringCs);
+x_array(String,	Strings);
+x_array(StringC,	StringCs);
 
 # define    shift_args(ac, av)  (ac--, *av++)
 # define    unused(_x)          (void)(_x)

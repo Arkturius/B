@@ -182,6 +182,9 @@ emit_ret_mem(Memory imm);
 /******************************************************************************/
 
 void
+asm_label(StringC label);
+
+void
 asm_push(Expression e);
 
 void
@@ -209,7 +212,7 @@ asm_ret(void);
 
 /******************************************************************************/
 
-void
+Expression
 code_move(Expression dst, Expression src);
 
 void
@@ -224,19 +227,27 @@ code_binop(BinopType type, Expression dst, Expression a, Expression b);
 void
 code_call(Expression func);
 
+Expression
+code_load(Expression src);
+
+
+Expression
+code_register(Register reg);
+
 void
-code_load(Expression dst, Expression src);
+code_register_release(Expression e);
+
 
 Register
-register_alloc(Register wanted);
+register_alloc(Register reg);
 
 void
 register_free(Register reg);
 
 Register
-register_spill(Register wanted);
+register_spill(Register reg);
 
 void
-register_restore(Register wanted);
+register_restore(Register reg);
 
 #endif // _CODEGEN_H

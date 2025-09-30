@@ -82,7 +82,7 @@ int
 main(int argc, char **argv)
 {
 	int	ret = 0;
-
+	
 	executable	= shift_args(argc, argv);
 	input_file	= shift_args(argc, argv);
 

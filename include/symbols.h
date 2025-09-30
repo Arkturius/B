@@ -1,52 +1,50 @@
 /**
- * symbols.h
- */
+* symbols.h - Symbols handling.
+*/
 
-#if !defined (_SYMBOLS_H)
-# define _SYMBOLS_H
+#if !defined (_B_SYMBOLS_H)
+# define _B_SYMBOLS_H
 
-# include <types.h>
+# define XLIB_NO_PREFIX
+# include <xlib.h>
 
-typedef struct	_bsymbol		Symbol;
-typedef enum	_bsymbol_type	SymbolType;
+x_enum 
+(
+	SymbolType,
+	x_enum_prefix(SYMBOL),
+	x_enum_members
+	(
+		(VAR_GLOBAL),
+		(VAR_LOCAL ),
+		(PARAMETER ),
+		(FUNCTION  ),
+		(LABEL     ),
+		(TEMPORARY ),
+	)
+)
 
-arr_decl(Symbol, Symbols);
-
-enum _bsymbol_type
-{
-	SYMBOL_VARIABLE,
-	SYMBOL_FUNCTION,
-	SYMBOL_PARAMETER,
-	SYMBOL_LABEL,
-	SYMBOL_EXTERN,
-
-	SYMBOL_ENUM_MAX,
-};
-
-struct _bsymbol
+typedef struct b_symbol
 {
 	SymbolType	type;
 	StringC		name;
 	Size		size;
-	Offset		off;
-};
+	union
+	{
+		Offset	var;
+		Offset	param;
+		StringC	label;
+	};
+}	Symbol;
+
+x_array(Symbol, Symbols);
+
+void
+B_symbol_add(Symbol *symbol);
 
 Symbol
 *B_symbol_find(StringC name);
 
 void
-B_symbol_new(SymbolType type, StringC name, Size size);
+B_symbol_dump(Symbol *symbol);
 
-void
-B_auto_decl(void);
-
-void
-B_auto_variable(StringC name, Size size);
-
-void
-B_extern_decl(void);
-
-void
-B_extern_variable(StringC name);
-
-#endif // _SYMBOLS_H
+#endif // _B_SYMBOLS_H

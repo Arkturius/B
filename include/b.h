@@ -1,206 +1,52 @@
 /**
- * b.h
- */
+* B - a syntax-driven B compiler.
+*/
 
 #if !defined (_B_COMPILER_H)
 # define _B_COMPILER_H
 
-# include <unistd.h>
-# include <stdlib.h>
-# include <stdio.h>
-# include <string.h>
-# include <stdarg.h>
+# define XLIB_NO_PREFIX
+# include <xlib.h>
 
-# include <types.h>
 # include <symbols.h>
-# include <expression.h>
+# include <scopes.h>
 
-int
-yyerror(const char *s);
+# include <eval/control.h>
+# include <eval/expression.h>
+# include <eval/computing.h>
 
-#  define	BLOG(_s, ...)	dprintf(2, "[B] > "_s"\n", ##__VA_ARGS__)
-#  define	BTODO(_s, ...)					\
-	do {									\
-		BLOG("TODO: "_s, ##__VA_ARGS__);	\
-		abort();							\
-	} while (0)
+# include <codegen/codegen.h>
 
-# define	WORD_SIZE	4
+extern int			yyleng;
+extern int			yylineno;
+extern char			*yytext;
 
-arr_decl(Offset, Offsets);
+extern int			b_col;
+extern const char	*b_row_start;
+extern char			b_hold_char;
 
-typedef struct _bcompiler	Compiler;
-typedef struct _bscope		Scope;
-typedef struct _bfunction	Function;
-typedef struct _brostring	RoString;
-
-arr_decl(Scope,  Scopes);
-
-struct _bscope
+typedef struct b_compiler
 {
-	Size	sym_start;
-	Size	sym_count;
-	Size	decl_size;
-	Size	stack;
-};
-
-typedef enum _blabel_type
-{
-	LABEL_NULL,
-	LABEL_FUNC_STOP,
-	LABEL_LOOP_START,
-	LABEL_LOOP_STOP,
-	LABEL_SKIP_IF,
-	LABEL_SKIP_ELSE,
-
-	LABEL_ENUM_MAX,
-}	LabelType;
-
-typedef struct _blabel	Label;
-typedef u32				LabelID;
-
-struct _blabel
-{
-	LabelID	id;
-	StringC	name;
-};
-
-arr_decl(Label,	Labels);
-
-typedef struct _blabel_grid
-{
-	Labels	grid[LABEL_ENUM_MAX];
-	Size	next_id;
-}	LabelGrid;
-
-void
-B_label_push(LabelType type);
-
-void
-B_label_pop(LabelType type);
-
-Label
-B_label_get(LabelType type);
-
-struct _bfunction
-{
-	StringC	name;
-	Size	arg_count;
-	Size	callee_save;
-	Size	caller_save;
-};
-
-struct _brostring
-{
-	StringC	text;
-	StringC	name;
-};
-
-arr_decl(RoString, RoStrings);
-
-struct _bcompiler
-{
-	u32	flags;
-
-	Symbols		symbols;
-	RoStrings	rostrings;
-	
 	Scopes		scopes;
-	
-	RegFrame	frame;
-	
-	Function	function;
+	Symbols		symbols;
 
-	Expressions	arguments;
-	Offsets		arities;
-	
-	LabelGrid	labels;
-};
+	LabelFrame	labels;
+
+	ROStrings	rostrings;
+}	Compiler;
 
 extern Compiler	B;
-
-__attribute__((format(printf, 1, 2))) StringC
-B_asprintf(StringC fmt, ...);
-
-void
-B_arena_erase(Size size);
-
-void
-B_arena_free(void);
 
 bool
 B_compiler_start(void);
 
-bool
+void
 B_compiler_stop(void);
 
-typedef enum _berror_type	ErrorType;
-
-enum _berror_type
-{
-	ERROR_FILE,
-	ERROR_ALLOC,
-	ERROR_SYNTAX,
-	ERROR_SYMBOL,
-	ERROR_ASM,
-
-	ERROR_ENUM_MAX,
-};
-
-__noreturn void
-B_error_opt(ErrorType t, StringC fmt, ...);
-
-# define	B_error(_t, ...)	B_error_opt(_t, ##__VA_ARGS__)
-
 void
-B_program_start(void);
+B_compiler_error(StringC reason);
 
-void
-B_program_stop(void);
-
-void
-B_scope_start(void);
-
-void
-B_scope_stop(void);
-
-void
-B_symbol_new(SymbolType type, StringC name, Size size);
-
-void
-B_return_expr(Expression ret);
-
-void
-B_if_start(Expression cond);
-
-void
-B_if_stop(bool is_else);
-
-void
-B_else_stop(void);
-
-void
-B_while_start(void);
-
-void
-B_while_condition(Expression cond);
-
-void
-B_while_stop(void);
-
-void
-B_function_start(StringC name);
-
-void
-B_function_stop(StringC name);
-
-void
-B_function_param(StringC name);
-
-Expression
-B_function_call(Expression call);
-
-void
-B_function_argument(Expression arg);
+StringC
+B_asprintf(StringC fmt, ...);
 
 #endif // _B_COMPILER_H

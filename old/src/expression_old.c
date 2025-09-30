@@ -2,46 +2,10 @@
  * expr.c
  */
 
-#include "expression.h"
 #include <b.h>
 #include <codegen.h>
 
 # define B_ESCAPE_CHAR	'\\'
-
-StringC	register_names[REG_ENUM_MAX] = 
-{
-	[REG_EDX] = "edx",
-	[REG_EAX] = "eax",
-	[REG_ECX] = "ecx",
-	[REG_EBX] = "ebx",
-	[REG_EDI] = "edi",
-	[REG_ESI] = "esi",
-	[REG_ESP] = "esp",
-	[REG_EBP] = "ebp",
-};
-
-StringC	register_bytes[REG_ENUM_MAX] = 
-{
-	[REG_EDX] = "dl",
-	[REG_EAX] = "al",
-	[REG_ECX] = "cl",
-	[REG_EBX] = "bl",
-	[REG_EDI] = "edi",
-	[REG_ESI] = "esi",
-	[REG_ESP] = "esp",
-	[REG_EBP] = "ebp",
-};
-
-StringC jump_ccs[BINOP_COMP_ENUM_MAX] =
-{
-	[BINOP]		= "jmp",
-	[BINOP_EQ]	= "je",
-	[BINOP_NE]	= "jne",
-	[BINOP_GT]	= "jg",
-	[BINOP_GE]	= "jge",
-	[BINOP_LT]	= "jl",
-	[BINOP_LE]	= "jle",
-};
 
 Expression
 B_expression_variable(StringC name)
@@ -49,25 +13,22 @@ B_expression_variable(StringC name)
 	Symbol	*symbol = B_symbol_find(name);
 
 	if (!symbol)
-		B_error(ERROR_SYMBOL, "use of unknown identifier '%s'", name);
+		B_error(ERROR_SYMBOL, "use of unknown identifier '%s'.", name);
 
 	if (symbol->type == SYMBOL_FUNCTION || symbol->type == SYMBOL_EXTERN)
-		return (Expression) { .type = EXPR_SYMBOL, .sym = name };
+		return SYM(name);
 
 	Expression	var =
 	{
 		.type = EXPR_MEMORY,
 		.mem = MEM_STACK(symbol->off)
 	};
-
 	if (symbol->size > WORD_SIZE)
 	{
-		Register	tmp = register_alloc(REG_NULL);
-	
-		code_load(REG(tmp), var);
-		return (REG(tmp));
+		Expression	tmp = code_load(var);
+		
+		return (tmp);
 	}
-
 	return (var);
 }
 

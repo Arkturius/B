@@ -86,8 +86,8 @@ struct _bmemory
 	u32			scale;
 	i32			displacement;
 	u32			size;
+	bool		sized;
 };
-
 
 enum _bexpr_type
 {

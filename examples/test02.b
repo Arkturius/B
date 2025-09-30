@@ -66,7 +66,7 @@ rec_queens(depth, rv)
 
 main(argc, argv, envp)
 {
-	auto	rv[2], n;
+	auto	rv[3], n;
 
 	rv[0] = 0;
 	rv[1] = 0;

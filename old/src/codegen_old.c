@@ -8,6 +8,41 @@
 #include <codegen.h>
 #include <stdbool.h>
 
+StringC	register_names[REG_ENUM_MAX] = 
+{
+	[REG_EDX] = "edx",
+	[REG_EAX] = "eax",
+	[REG_ECX] = "ecx",
+	[REG_EBX] = "ebx",
+	[REG_EDI] = "edi",
+	[REG_ESI] = "esi",
+	[REG_ESP] = "esp",
+	[REG_EBP] = "ebp",
+};
+
+StringC	register_bytes[REG_ENUM_MAX] = 
+{
+	[REG_EDX] = "dl",
+	[REG_EAX] = "al",
+	[REG_ECX] = "cl",
+	[REG_EBX] = "bl",
+	[REG_EDI] = "edi",
+	[REG_ESI] = "esi",
+	[REG_ESP] = "esp",
+	[REG_EBP] = "ebp",
+};
+
+StringC jump_ccs[BINOP_COMP_ENUM_MAX] =
+{
+	[BINOP]		= "jmp",
+	[BINOP_EQ]	= "je",
+	[BINOP_NE]	= "jne",
+	[BINOP_GT]	= "jg",
+	[BINOP_GE]	= "jge",
+	[BINOP_LT]	= "jl",
+	[BINOP_LE]	= "jle",
+};
+
 StringC syntax_names[SYNTAX_ENUM_MAX] = 
 {
 	[SYNTAX_INTEL]	= ".intel_syntax noprefix",
@@ -469,162 +504,98 @@ asm_load(Register dst, Memory src)
 
 /******************************************************************************/
 
-Offset
-register_spill_offset(void)
+/****************************************************************************/
+
+Expression
+code_register(Register reg)
 {
-	Scope	*current = arr_last(B.scopes);
+	RegState	*states;
 
-	if (!current)
-		B_error(ERROR_SYMBOL, "can't spill register without scope.");
+	if (reg != REG_NULL)
+		BTODO("dedicated register allocation.");
 
-	Offset	spill = -(current->stack + B.frame.spill);
+	states = B.frame.states;
+	for (Register r = 0; r < REG_USABLE; ++r)
+	{
+		if (states[r].in_use)
+			continue;
+		states[r].in_use = true;
+		return (REG(r));
+	}
+	B_error(ERROR_ASM, "cannot allocate register.");
+}
 
-	current->stack += WORD_SIZE;
+void
+code_register_release(Expression e)
+{
+	if (e.type != EXPR_REGISTER)
+		return ;
 	
-	return (spill);
-}
-
-Register
-register_spill(Register wanted)
-{
-	RegState	*state = &B.frame.states[wanted];
-
-	if (!state->spilled)
-	{
-		state->spill = register_spill_offset();
-		state->in_use = false;
-		state->spilled = true;
-
-		emit_push_reg(wanted);
-	}
-	return (wanted);
-}
-
-void
-register_restore(Register wanted)
-{
-	RegState	*state = &B.frame.states[wanted];
-
-	if (state->spilled)
-	{
-		emit_pop_reg(wanted);
-
-		state->spilled = false;
-		state->in_use = true;
-	}
-}
-
-Register
-register_alloc(Register wanted)
-{
-	if (wanted > REG_USABLE)
-		B_error(ERROR_ASM, "cannot reserve register '%s'", register_names[wanted]);
-
-	if (wanted != REG_NULL)
-	{
-		RegState	*state = &B.frame.states[wanted];
-
-		if (state->in_use)
-			register_spill(wanted);
-
-		state->in_use = true;
-		BLOG("allocated register [%s]", register_names[wanted]);
-		return (wanted);
-	}
-
-	for (Register reg = REG_NULL + 1; reg <= REG_USABLE; ++reg)
-	{
-		RegState	*state = &B.frame.states[reg];
-
-		if (!state->in_use)
-		{
-			state->in_use = true;
-			BLOG("allocated register [%s]", register_names[reg]);
-			return (reg);
-		}
-	}
-	BLOG("allocated spill slot.");
-	return (register_spill(REG_NULL));
-}
-
-void
-register_free(Register reg)
-{
-	if (reg > REG_USABLE)
-		B_error(ERROR_ASM, "cannot free register '%s'", register_names[reg]);
-
-	RegState	*state = &B.frame.states[reg];
+	RegState	*state = &B.frame.states[e.reg];
 
 	if (!state->in_use)
 		return ;
-
 	state->in_use = false;
-	BLOG("freed register [%s]", register_names[reg]);
-}
-
-bool
-register_is_same(Expression a, Expression b)
-{
-	if (a.type != EXPR_REGISTER || b.type != EXPR_REGISTER)
-		B_error(ERROR_ASM, "can't compare non-register expressions.'");
-
-	return (a.reg == b.reg);
-}
-
-bool
-memory_is_same(Expression a, Expression b)
-{
-	if (a.type != EXPR_MEMORY || b.type != EXPR_MEMORY)
-		B_error(ERROR_ASM, "can't compare non-memory expressions.'");
-
-	if (a.mem.base != b.mem.base)
-		return (false);
-	if (a.mem.index != b.mem.index)
-		return (false);
-	if (a.mem.scale != b.mem.scale)
-		return (false);
-	if (a.mem.displacement != b.mem.displacement)
-		return (false);
-	return (true);
 }
 
 void
+code_register_cleanup(void)
+{
+	for (Register r = 0; r < REG_USABLE; ++r)
+		code_register_release(REG(r));
+}
+
+static bool
+code_expression_cmp(Expression *a, Expression *b)
+{
+	return (memcmp(a, b, sizeof(Expression)) == 0);
+}
+
+static void
+code_operands_binary(Expression *dst, Expression *src)
+{
+	if (code_expression_cmp(dst, src))
+		return ;
+	
+	if (dst->type == EXPR_MEMORY && (src->type == EXPR_MEMORY || src->type == EXPR_SYMBOL))
+	{
+		Expression	temp = code_register(REG_NULL);
+
+		code_move(temp, *src);
+		*src = temp;
+	}
+}
+
+Expression
 code_move(Expression dst, Expression src)
 {
-	if (dst.type == EXPR_REGISTER && src.type == EXPR_REGISTER && register_is_same(dst, src))
-		return ;
-	if (dst.type == EXPR_MEMORY && src.type == EXPR_MEMORY && memory_is_same(dst, src))
-		return ;
+	code_operands_binary(&dst, &src);
 
-	if (dst.type == EXPR_MEMORY && (src.type == EXPR_MEMORY || src.type == EXPR_SYMBOL))
-	{
-		Register	tmp = register_alloc(REG_NULL);
+	asm_mov(dst, src);
 
-		asm_mov(REG(tmp), src);
-		asm_mov(dst, REG(tmp));
-
-//		register_free(tmp);
-	}
-	else
-		asm_mov(dst, src);
 	if (src.type == EXPR_REGISTER && src.reg <= REG_USABLE)
 		register_free(src.reg);
+
+	return (dst);
 }
 
 void
 code_jump(BinopType cond, LabelType type, StringC lbl)
-{	
+{
+	StringC	jump;
+
 	if (lbl)
+		jump = lbl;
+	else
 	{
-		asm_jump(cond, lbl);
-		return ;
+		if (type == LABEL_NULL || type >= LABEL_ENUM_MAX)
+			B_error(ERROR_SYNTAX, "invalid label type.");
+
+		Label	label = B_label_get(type);
+
+		jump = label.name;
 	}
-	if (type == LABEL_NULL || type >= LABEL_ENUM_MAX)
-		B_error(ERROR_SYNTAX, "invalid label type.");
-
-	Label	label = B_label_get(type);
-
-	asm_jump(cond, label.name);
+	asm_jump(cond, jump);
 }
 
 void
@@ -635,8 +606,9 @@ code_label(LabelType type)
 
 	Label	label = B_label_get(type);
 
-	emit_label(label.name);
+	asm_label(label.name);
 }
+/****************************************************************************/
 
 void
 code_binop(BinopType type, Expression dst, Expression a, Expression b)
@@ -705,22 +677,24 @@ code_call(Expression func)
 		tmp = register_alloc(REG_NULL);
 		asm_mov(REG(tmp), func);
 		asm_call(REG(tmp));
-//		register_free(tmp);
 	}
 	else
 		asm_call(func);
 }
 
-void
-code_load(Expression dst, Expression src)
+Expression
+code_load(Expression src)
 {
-//	assert(dst.type == EXPR_REGISTER && src.type == EXPR_MEMORY);
+	Expression	dst;
 
+	dst = src;
+	if (src.type != EXPR_REGISTER)
+	{
+		dst = code_register(REG_NULL);
+		dst = code_move(dst, src);
+	}
 	asm_load(dst.reg, src.mem);
+
+	return (dst);
 }
-// 
-// void
-// code_deref(Expression dst, Expression src)
-// {
-// 	asm_mov(dst, src);
-// }
+

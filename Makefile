@@ -6,13 +6,14 @@ NAME		:=	B
 
 COMP_SCRIPT	:=	bcomp.sh
 
-SRCS		:=	b.c				\
-				declarations.c	\
-				expression.c	\
-				symbols.c		\
-				program.c		\
-				codegen.c		\
-				utils.c			\
+SRCS		:=	bcompiler.c			\
+				symbols.c			\
+				scopes.c			\
+				eval/control.c		\
+				eval/expression.c	\
+				codegen/regalloc.c	\
+				codegen/codegen.c	\
+				codegen/emission.c	\
 
 SRC_DIR		:=	src
 INC_DIR		:=	include
@@ -47,7 +48,7 @@ ifeq ($(VERBOSE), 1)
 endif
 
 ifeq ($(DEBUG), 1)
-	CFLAGS	+=	-DB_DEBUG
+	CFLAGS	+=	-DB_DEBUG -DB_DUMP_ALL
 endif
 
 all:		$(NAME)
