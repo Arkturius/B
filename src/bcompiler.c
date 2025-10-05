@@ -2,6 +2,7 @@
 * bcompiler.c
 */
 
+#include "symbols.h"
 #include <stdarg.h>
 
 #include <b.h>
@@ -43,13 +44,15 @@ B_compiler_run(void)
 	fclose(yyin);
 	yylex_destroy();
 
+	log("SYMBOL TABLE AT END OF COMPILATION:");
+	B_symbol_table_dump();
 	return (ret);
 }
 
-void
+_noreturn void
 B_compiler_error(StringC reason)
 {
-	todo("BETTER ERROR HANDLING");
+	todo("%s: BETTER ERROR HANDLING", reason);
 
 	StringC	line = b_row_start ? b_row_start : yytext;
 

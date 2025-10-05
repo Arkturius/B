@@ -9,6 +9,7 @@ COMP_SCRIPT	:=	bcomp.sh
 SRCS		:=	bcompiler.c			\
 				symbols.c			\
 				scopes.c			\
+				eval/declaration.c	\
 				eval/control.c		\
 				eval/expression.c	\
 				codegen/regalloc.c	\

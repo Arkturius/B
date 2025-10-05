@@ -27,4 +27,19 @@ B_eval_constant(i32 imm, StringC constant);
 Expression 
 B_eval_identifier(StringC identifier);
 
+x_enum
+(
+	OpType,
+	x_enum_prefix(OP),
+	x_enum_members 
+	(
+		(NONE ),
+		(PLUS ),
+		(MINUS),
+		(MULT ),
+		(DIV  ),
+		(MOD  ),
+	)
+)
+
 #endif // _B_EXPRESSION_H

@@ -2,12 +2,38 @@
 * regalloc.h
 */
 
+#include "eval/expression.h"
 #if !defined (_B_REGALLOC_H)
 # define _B_REGALLOC_H
 
+# include <symbols.h>
 # include <codegen/emission.h>
 
-typedef struct b_reg_allocation	RegAlloc;
+typedef struct b_expr_allocation	ExprAlloc;
+
+x_enum
+(
+	ExprStatus,
+	x_enum_prefix(EXPR_STATUS),
+	x_enum_members 
+	(
+		(FREE     ),
+		(ALLOCATED),
+		(RESERVED ),
+		(SPILLED  ),
+	)
+)
+
+struct b_expr_allocation
+{
+	x86Operand	op;
+	ExprStatus  status;
+	void		*data;
+};
+
+x_array(struct b_expr_allocation, ExprAllocator);
+
+extern ExprAllocator	EA;
 
 x_enum 
 (
@@ -23,33 +49,36 @@ x_enum
 	)
 )
 
-x_enum
-(
-	RegStatus,
-	x_enum_prefix(REG_STATUS),
-	x_enum_members 
-	(
-		(FREE     ),
-		(ALLOCATED),
-		(RESERVED ),
-		(SPILLED  ),
-	)
-)
-
-struct b_reg_allocation
+typedef struct b_reg_state
 {
-	x86Operand	op;
-
-	RegStatus   status;
+	Expression	owner;
+	bool		used;
 	bool		dirty;
-	bool		pinned;
+	u32			tick;
+}	RegState;
 
-	u32			last_use;
-	void		*data;
-};
+x_array(RegState, RegStates);
 
-x_array(struct b_reg_allocation, RegAllocator);
+typedef struct b_reg_pool
+{
+	RegStates	states;
+	u32			tick;
+}	RegPool;
 
-extern RegAllocator	RA;
+extern RegPool	RP;
+
+x86Register
+RP_register_alloc(RegClass hint);
+
+void
+RP_register_free(x86Register reg);
+
+
+
+Expression
+EA_allocate_symbol(Symbol *symbol);
+
+void
+EA_expr_update(Expression e, x86Operand op, ExprStatus status);
 
 #endif // _B_REGALLOC_H

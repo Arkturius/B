@@ -12,44 +12,98 @@ B_symbol_add(Symbol *symbol)
 	arr_append(B.symbols, *symbol);
 }
 
+void
+B_symbol_internal_add(Symbol *symbol)
+{
+	arr_append(B.internals, *symbol);
+}
+
 Symbol
 *B_symbol_find(StringC name)
 {
-	arr_foreach_rev(Scope, current, B.scopes)
+	Scope	*global_scope = NULL;
+	Symbols	scope_symbols;
+
+	if (!arr_count(B.scopes))
+		B_compiler_error("no global scope.");
+
+	arr_foreach_rev(Scope, scope, B.scopes)
 	{
-		if (current == arr_first(B.scopes))
-			break ;
-
-		Symbols	symbols = x_subarray(B.symbols, current->start, current->count);
-
-		arr_foreach(Symbol, symbol, symbols)
+		if (scope == arr_first(B.scopes))
 		{
-			if (strcmp(symbol->name, name) == 0)
+			global_scope = scope;
+			break ;
+		}
+		scope_symbols = x_subarray(B.symbols, scope->start, scope->count);
+		arr_foreach(Symbol, symbol, scope_symbols)
+		{
+			if (!strcmp(symbol->name, name))
 				return (symbol);
 		}
 	}
 
-	// TODO: there will be SIMPLE DEFINITIONS, EXTERNAL VECTORS here.
-	Symbols	functions = x_subarray(B.symbols, 0, arr_first(B.scopes)->count);
-
-	arr_foreach(Symbol, function, functions)
+	StringC	internal_name = B_asprintf("%s.%s", B.function_name, name);
+	arr_foreach(Symbol, internal, B.internals)
 	{
-		if (strcmp(function->name, name) == 0)
-			return (function);
+		if (!strcmp(internal->name, internal_name))
+		{
+			free((String)internal_name);
+			return (internal);
+		}
+	}
+	free((String)internal_name);
+	
+	scope_symbols = x_subarray(B.symbols, global_scope->start, global_scope->count);
+	arr_foreach(Symbol, symbol, scope_symbols)
+	{
+		if (!strcmp(symbol->name, name))
+			return (symbol);
 	}
 
-	unreachable("no symbol found.");
+	return (NULL);
 }
 
 void
 B_symbol_dump(Symbol *symbol)
 {
-	printf
+	dprintf 
 	(
-		"Symbol\n"
-		"{\n"
-		"    type = %s\n"
-		"}\n",
-		x_tostr_SymbolType(symbol->type)
+		2,
+		"Symbol "
+		"{ "
+		" name = %p:%16s,"
+		" storage type = %16s,"
+		" variable type = %16s,"
+		" offset = %4d,"
+		"}",
+		symbol->name, symbol->name,
+		x_tostr_StorageType(symbol->stype),
+		x_tostr_VarType(symbol->vtype),
+		symbol->off
 	);
+}
+
+void
+B_symbol_table_dump(void)
+{
+	Symbols	scope_symbols;
+
+	dprintf(2, "-----------------------------------------------------\n");
+	arr_foreach(Scope, scope, B.scopes)
+	{
+		scope_symbols = x_subarray(B.symbols, scope->start, scope->count);
+		arr_foreach(Symbol, symbol, scope_symbols)
+		{
+			dprintf(2, "[%lu] - ", scope - arr_first(B.scopes));
+			B_symbol_dump(symbol);
+			dprintf(2, "\n");
+		}
+	}
+	arr_foreach(Symbol, internal, B.internals)
+	{
+		dprintf(2, "[I] - ");
+		B_symbol_dump(internal);
+		dprintf(2, "\n");
+	}
+	dprintf(2, "-----------------------------------------------------\n");
 }

@@ -8,32 +8,38 @@
 # define XLIB_NO_PREFIX
 # include <xlib.h>
 
-x_enum 
+x_enum
 (
-	SymbolType,
-	x_enum_prefix(SYMBOL),
+	StorageType,
+	x_enum_prefix(STORAGE),
+	x_enum_members 
+	(
+		(AUTO  ),
+		(EXTERN),
+		(INTERN),
+	)
+);
+
+x_enum
+(
+	VarType,
+	x_enum_prefix(VARIABLE),
 	x_enum_members
 	(
-		(VAR_GLOBAL),
-		(VAR_LOCAL ),
-		(PARAMETER ),
-		(FUNCTION  ),
-		(LABEL     ),
-		(TEMPORARY ),
+		(UNKNOWN ),
+		(SCALAR  ),
+		(VECTOR  ),
+		(FUNCTION),
 	)
-)
+);
 
 typedef struct b_symbol
 {
-	SymbolType	type;
+	StorageType	stype;
+	VarType		vtype;
 	StringC		name;
 	Size		size;
-	union
-	{
-		Offset	var;
-		Offset	param;
-		StringC	label;
-	};
+	Offset		off;
 }	Symbol;
 
 x_array(Symbol, Symbols);
@@ -41,10 +47,28 @@ x_array(Symbol, Symbols);
 void
 B_symbol_add(Symbol *symbol);
 
+void
+B_symbol_internal_add(Symbol *symbol);
+
+inline bool
+B_symbol_is_storage(Symbol *sym, StorageType storage)
+{
+	return (sym->stype == storage);
+}
+
+inline bool
+B_symbol_is_variable(Symbol *sym, VarType variable)
+{
+	return (sym->vtype == variable);
+}
+
 Symbol
 *B_symbol_find(StringC name);
 
 void
 B_symbol_dump(Symbol *symbol);
+
+void
+B_symbol_table_dump(void);
 
 #endif // _B_SYMBOLS_H

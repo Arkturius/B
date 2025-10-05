@@ -18,23 +18,29 @@
 #	define	stringify			x_stringify
 
 #	define	log					x_log	
+#	define	warning				x_warning	
 #	define	todo				x_todo
 #	define	unreachable			x_unreachable
 
+#   ifndef _noreturn
+#	 define	_noreturn			x__noreturn
+#   endif
 #	define	_constructor		x__constructor
 #	define	_destructor			x__destructor
 #	define	_unused				x__unused
 
 #	define	arr_count			x_arr_count
 # 	define	arr_first			x_arr_first
-# 	define	arr_size			x_arr_size
 # 	define	arr_last			x_arr_last
+#	define	arr_nth				x_arr_nth
+# 	define	arr_size			x_arr_size
 # 	define	arr_index			x_arr_index
 
 #	define	arr_append			x_arr_append
 #	define	arr_pop				x_arr_pop
 #	define	arr_delete			x_arr_delete
 
+#	define	arr_realloc			x_arr_realloc
 #	define	arr_reserve			x_arr_reserve
 #	define	arr_destroy			x_arr_destroy
 #	define	arr_foreach			x_arr_foreach
@@ -70,9 +76,11 @@ typedef i32         Offset;
 */
 
 # define	x_log_prefix			"[INFO]"
+# define	x_warning_prefix		"[WARNING]"
 # define	x_todo_prefix			"[TODO]"
 # define	x_unreachable_prefix	"[UNREACHABLE]"
 
+# define	x__noreturn				__attribute__((noreturn))
 # define	x__destructor(...)		__attribute__(( destructor __VA_OPT__( (__VA_ARGS__) ) ))
 # define	x__constructor(...)		__attribute__(( constructor __VA_OPT__( (__VA_ARGS__) ) ))
 # define	x__unused				__attribute__((unused))
@@ -95,7 +103,8 @@ typedef i32         Offset;
 		abort();															\
 	} while (0);
 
-# define	x_log(_s, ...)	_x_log(x_log_prefix, _s, ##__VA_ARGS__)
+# define	x_log(_s, ...)		_x_log(x_log_prefix, _s, ##__VA_ARGS__)
+# define	x_warning(_s, ...)	_x_log(x_warning_prefix, _s, ##__VA_ARGS__)
 
 /**
 * Macro utilities.
@@ -107,6 +116,7 @@ typedef i32         Offset;
 # define	min(_a, _b)			((_a) < (_b) ? (_a) : (_b))
 # define	max(_a, _b)			((_a) > (_b) ? (_a) : (_b))
 # define	clamp(_e, _a, _b)	min(max(_a, _e), _b)
+# define	array_len(_a)		(sizeof(_a) / sizeof((_a)[0]))
 
 # define	x_parens			()
 # define	x_rparen			)
@@ -169,9 +179,10 @@ typedef i32         Offset;
 
 # define	x_arr_count(_arr)		((_arr).count)
 # define	x_arr_first(_arr)		((_arr).items)
-# define	x_arr_size(_arr)		((_arr).capacity)
 # define	x_arr_last(_arr)		((_arr).items + x_arr_count(_arr) - 1)
-# define	x_arr_index(_arr, _e)	((_e) - (_arr.items))
+# define	x_arr_nth(_arr, _n)		(x_arr_first((_arr)) + (_n))
+# define	x_arr_size(_arr)		((_arr).capacity)
+# define	x_arr_index(_arr, _e)	((_e) - ((_arr).items))
 
 # define	x_subarray(_arr, _start, _count)								\
 																			\

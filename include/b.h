@@ -14,8 +14,10 @@
 # include <eval/control.h>
 # include <eval/expression.h>
 # include <eval/computing.h>
+# include <eval/declaration.h>
 
 # include <codegen/codegen.h>
+# include <codegen/regalloc.h>
 
 extern int			yyleng;
 extern int			yylineno;
@@ -29,10 +31,19 @@ typedef struct b_compiler
 {
 	Scopes		scopes;
 	Symbols		symbols;
+	Symbols		internals;
 
 	LabelFrame	labels;
 
 	ROStrings	rostrings;
+
+	Size		auto_size;
+	Size		param_size;
+
+	StringC		function_name;
+	IVals		ivals;
+
+	SectionType	section;
 }	Compiler;
 
 extern Compiler	B;
@@ -43,7 +54,7 @@ B_compiler_start(void);
 void
 B_compiler_stop(void);
 
-void
+_noreturn void
 B_compiler_error(StringC reason);
 
 StringC

@@ -2,6 +2,8 @@
 * control.c
 */
 
+#include "codegen/codegen.h"
+#include "symbols.h"
 #include <assert.h>
 #include <string.h>
 
@@ -70,34 +72,32 @@ void
 B_control_program_stop(void)
 {
 	assert(arr_count(B.scopes) == 1 && "program can't finish outside of main scope.");
-	
-	CG_rodata();
 }
 
 void
 B_control_function_start(StringC name)
 {
-	Symbol	function = 
-	{
-		.type = SYMBOL_FUNCTION,
-		.name = name,
-	};
-
-	B_symbol_add(&function);
-	B_scope_enter();
 	B_label_push(LABEL_FUNCTION_END);
 	
-	CG_label(name, true);
+	CG_function(name);
 	CG_prolog();
+
+	B_scope_enter();
+
+	B.function_name = name;
 }
 
 void
 B_control_function_stop(void)
 {
-	B_scope_leave();
-
 	B_label(LABEL_FUNCTION_END);
 	B_label_pop(LABEL_FUNCTION_END);
 
 	CG_epilog();
+	CG_rodata_section();
+	CG_data_section();
+
+	B_scope_leave();
+
+	B.function_name = NULL;
 }

@@ -7,7 +7,7 @@
 
 # include <codegen/codegen.h>
 
-typedef u32		x86Immediate;
+typedef i32		x86Immediate;
 
 /**
  * x86 Register bases.
@@ -236,8 +236,8 @@ ASM_instruction_set
 	(1, PUSH , push ),
 	(1, POP  , pop  ),
 	(1, CALL , call ),
- 	(0, RET  , ret  ),
- 	(0, CDQ  , cdq  ),
+  	(0, RET  , ret  ),
+  	(0, CDQ  , cdq  ),
 )
 
 extern StringC	ASM_instruction_names[INSTRUCTION_XENUM_LAST];
@@ -252,6 +252,7 @@ x_enum
 	x_enum_prefix(SECTION),
 	x_enum_members
 	(
+		(NONE  ),
 		(TEXT  ),
 		(DATA  ),
 		(RODATA),
@@ -294,7 +295,7 @@ typedef struct
 			ASM_directive(DIRECTIVE_SYNTAX, .str = "noprefix")
 
 # define	ASM_dir_align(_d)												\
-			ASM_directive(DIRECTIVE_ALIGN, .data = (void *)(_d))
+			ASM_directive(DIRECTIVE_ALIGN, .data = (void *)(long)(_d))
 
 # define	ASM_dir_section(_s)												\
 			ASM_directive(DIRECTIVE_SECTION, .str = ASM_section_name(_s))
@@ -310,6 +311,21 @@ typedef struct
 
 void
 ASM_emit_directive(DirectiveType t, DirectiveOpt opt);
+
+void
+ASM_emit_operand_immediate(x86Immediate imm);
+
+void
+ASM_emit_operand_register(x86Register reg);
+
+void
+ASM_emit_operand_memory(x86Memory mem, bool destination);
+
+void
+ASM_emit_operand_symbol(x86Symbol sym);
+
+void
+ASM_emit_symbol(x86Symbol sym);
 
 void
 ASM_label(StringC label);

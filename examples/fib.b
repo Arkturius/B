@@ -12,6 +12,3 @@ main(ac, av, env)
 	}
 	return (42);
 }
-
-
-caca[4] {2, 3, 4, 5}

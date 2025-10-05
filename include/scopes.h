@@ -27,4 +27,7 @@ B_scope_leave(void);
 void
 B_scope_grow(Symbol *symbol);
 
+void
+B_scope_dump_last(void);
+
 #endif // _B_SCOPES_H

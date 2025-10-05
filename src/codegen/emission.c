@@ -7,6 +7,7 @@
 #include <string.h>
 #include <stdio.h>
 
+#include <eval/declaration.h>
 #include <codegen/emission.h>
 
 # define	X86_INSTR_NAME(_enum, _op, _name)	[concat(INSTRUCTION, _op)] = stringify(_name),
@@ -88,6 +89,23 @@ ASM_is_scale(x86MemoryScale scale)
 	}
 }
 
+static void
+ASM_emit_long_list(void *data)
+{
+	IVals	*ivals = data;
+
+	arr_foreach(IVal, ival, *ivals)
+	{
+		if (arr_index(*ivals, ival) > 0)
+			printf(",");
+		printf(" ");
+		if (ival->sym)
+			ASM_emit_symbol(ival->sym);
+		else
+			ASM_emit_operand_immediate(ival->imm);
+	}
+}
+
 void
 ASM_emit_directive(DirectiveType t, DirectiveOpt opt)
 {
@@ -99,14 +117,21 @@ ASM_emit_directive(DirectiveType t, DirectiveOpt opt)
 	switch (t)
 	{
 		case DIRECTIVE_LONG:
-			printf(" %s +", opt.str);
-		/* fallthrough */
+		{
+			if (opt.str)
+				printf(" %s + %ld", opt.str, (long int) opt.data);
+			else
+				ASM_emit_long_list(opt.data);
+			break ;
+		}
 		case DIRECTIVE_ALIGN:
-			printf(" %ld\n", (long int) opt.data);
+			printf(" %ld", (long int) opt.data);
 			break ;
 		default:
-			printf(" %s\n", opt.str);
+			printf(" %s", opt.str);
+			break ;
 	}
+	printf("\n");
 }
 
 void
@@ -115,13 +140,13 @@ ASM_label(StringC label)
 	printf("%s:\n", label);
 }
 
-static void
+void
 ASM_emit_operand_immediate(x86Immediate imm)
 {
 	printf("0x%02x", imm);
 }
 
-static void
+void
 ASM_emit_operand_register(x86Register reg)
 {
 	StringC	name = ASM_register_name(reg);
@@ -156,7 +181,7 @@ ASM_emit_operand_memory_size(x86MemoryScale size, bool destination)
 	}
 }
 
-static void
+void
 ASM_emit_operand_memory(x86Memory mem, bool destination)
 {
 	ASM_emit_operand_memory_size(mem.size, destination);
@@ -183,7 +208,7 @@ ASM_emit_operand_memory(x86Memory mem, bool destination)
 	printf("]");
 }
 
-static void
+void
 ASM_emit_operand_symbol(x86Symbol sym)
 {
 	assert(sym != NULL && "invalid x86Symbol (null).");
@@ -191,7 +216,15 @@ ASM_emit_operand_symbol(x86Symbol sym)
 	printf("[%s]", sym);
 }
 
-static void
+void
+ASM_emit_symbol(x86Symbol sym)
+{
+	assert(sym != NULL && "invalid x86Symbol (null).");
+
+	printf("%s", sym);
+}
+
+void
 ASM_emit_operand(x86Operand op)
 {
 	assert(op.type < OPERAND_XENUM_LAST && "invalid x86Operand.");

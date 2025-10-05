@@ -106,17 +106,21 @@ definition_list
 
 definition
 	: function
-	| NAME RBRACKET CONSTANT LBRACKET 
+	| global_def
+	;
+
+global_def
+	: NAME LBRACKET CONSTANT RBRACKET ivals SEMI
 	    { B_eval_vector_def($1, $3); }
-	  vector_ivals
-	| NAME RBRACKET LBRACKET 
+	| NAME LBRACKET RBRACKET ivals SEMI
 		{ B_eval_vector_def($1, 0); }
-	  vector_ivals
+	| NAME ivals SEMI
+		{ B_eval_simple_def($1); }
 	;
 
 ivals 
-	: LBRACE ival_list LBRACE
-		{ B_eval_ival_end(); }
+	: ival_list
+	|
 	;
 
 ival_list
@@ -133,8 +137,10 @@ ival
 
 function
 	: NAME
-		{ B_control_function_start($1); }
-	  LPAREN param_list_opt RPAREN statement
+		{ B_eval_function_def($1); B_control_function_start($1); }
+	  LPAREN param_list_opt 
+		{ B_eval_param_list(); }
+	  RPAREN statement
 		{ B_control_function_stop(); }
 	;
 
@@ -150,12 +156,15 @@ param_list
 
 param
 	: NAME
+		{ B_eval_param_decl($1); }
 	;
 
 compound_statement
 	: LBRACE RBRACE
 	| LBRACE
+		{ B_scope_enter(); }
 	  statement_list
+		{ B_scope_leave(); }
 	  RBRACE
 	;
 
@@ -170,6 +179,7 @@ statement_cleanup
 
 statement
 	: AUTO auto_decl_list SEMI
+		{ B_eval_auto_list(); }
 	| EXTERN extrn_decl_list SEMI
 	| expr SEMI
 	| if_statement
@@ -196,7 +206,7 @@ auto_decl_list
 
 auto_decl
 	: NAME
-		{ B_eval_auto_decl($1, 1); }
+		{ B_eval_auto_decl($1, 0); }
 	| NAME CONSTANT
 		{ B_eval_auto_decl($1, $2); }
 	;
@@ -208,6 +218,7 @@ extrn_decl_list
 
 extrn_decl
 	: NAME
+		{ B_eval_extern_decl($1); }
 	;
 
 if_statement
@@ -237,6 +248,7 @@ expr
 expr_assignment
 	: expr_conditional
 	| expr_assignment ASSIGN		expr_assignment
+		{ B_eval_assignment(OP_NONE, $1, $3); }
     | expr_assignment ASSIGN_PLUS	expr_assignment
     | expr_assignment ASSIGN_MINUS	expr_assignment
     | expr_assignment ASSIGN_MULT	expr_assignment

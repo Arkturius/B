@@ -16,7 +16,7 @@ B_constant_string_name(void)
 static inline Expression
 B_eval_constant_string(StringC str)
 {
-	Expression	expr = arr_count(RA);
+	Expression	expr = arr_count(EA);
 
 	String		lit = strndup(str + 1, strlen(str) - 2);
 	ROString	new =
@@ -27,21 +27,13 @@ B_eval_constant_string(StringC str)
 	free(lit); // TODO: remove this when the string arena kicks in.
 
 	arr_append(B.rostrings, new);
-
-#if defined(B_DUMP_ALL)
-
-	log("ROSTRING: name = %s", new.name);
-	log("ROSTRING: data = \"%s\"", new.content);
-
-#endif
-
 	return (expr);
 }
 
 static inline Expression
 B_eval_constant_char(StringC str)
 {
-	Expression	expr = arr_count(RA);
+	Expression	expr = arr_count(EA);
 	todo("evaluate constant chars.");
 	return (expr);
 }
@@ -49,7 +41,7 @@ B_eval_constant_char(StringC str)
 static Expression
 B_eval_constant_strlit(StringC str)
 {
-	RegAlloc	new;
+	ExprAlloc	new;
 
 	unused(new);
 	switch (*str)
@@ -64,10 +56,10 @@ B_eval_constant_strlit(StringC str)
 static Expression
 B_eval_constant_int(i32 imm)
 {
-	Expression	expr = arr_count(RA);
-	RegAlloc	new  = { .op = IMM_OPERAND(imm) };
+	Expression	expr = arr_count(EA);
+	ExprAlloc	new  = { .op = IMM_OPERAND(imm) };
 
-	arr_append(RA, new);
+	arr_append(EA, new);
 	return (expr);
 }
 
@@ -83,26 +75,37 @@ Expression
 B_eval_identifier(StringC identifier)
 {
 	Symbol	*symbol = B_symbol_find(identifier);
+	Symbol	internal;
 
 	if (!symbol)
-		unreachable("Use of undeclared identifier '%s'.", identifier);
-
-	switch (symbol->type)
 	{
-		case SYMBOL_VAR_GLOBAL:
-			todo("case SYMBOL_VAR_GLOBAL");
-		case SYMBOL_VAR_LOCAL:
-			todo("case SYMBOL_VAR_LOCAL");
-		case SYMBOL_PARAMETER:
-			todo("case SYMBOL_PARAMETER");
-		case SYMBOL_FUNCTION:
-			todo("case SYMBOL_FUNCTION");
-		case SYMBOL_LABEL:
-			todo("case SYMBOL_LABEL");
-	
-		case SYMBOL_TEMPORARY :
-		default:
-			unreachable("Invalid SymbolType. aborting.");
+		StringC	internal_name = B_asprintf("%s.%s", B.function_name, identifier);
+		internal = (Symbol)
+		{
+			.stype = STORAGE_INTERN,
+			.vtype = VARIABLE_SCALAR,
+			.name  = internal_name,
+		};
+		B_symbol_internal_add(&internal);
+		symbol = &internal;
 	}
-	return (EXPR_INVALID);
+
+	Expression	expr = EA_allocate_symbol(symbol);
+
+	return (expr);
+}
+
+Expression
+B_eval_assignment(OpType type, Expression dst, Expression src)
+{
+	switch (type)
+	{
+		case OP_NONE:
+		{
+			CG_move(dst, src);
+			break ;
+		}
+		default:
+			todo("implement %s case for %s", __func__, x_tostr_OpType(type));
+	}
 }
