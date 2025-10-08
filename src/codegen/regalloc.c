@@ -2,8 +2,6 @@
 * regalloc.c
 */
 
-#include "codegen/emission.h"
-#include "eval/expression.h"
 #include <b.h>
 #include <codegen/regalloc.h>
 
@@ -13,6 +11,8 @@ RegPool			RP = {0};
 static Expression
 EA_allocate_auto(Symbol *symbol)
 {
+	B_DBG_TREE;
+
 	switch (symbol->vtype)
 	{
 		case VARIABLE_SCALAR:
@@ -41,18 +41,31 @@ EA_allocate_auto(Symbol *symbol)
 static Expression
 EA_allocate_extern(Symbol *symbol)
 {
-	todo("%s", __func__);
+	B_DBG_TREE;
+
+	Expression	e = arr_count(EA);
+	ExprAlloc	alloc = 
+	{
+		.status = EXPR_STATUS_RESERVED,
+		.op = SYM_OPERAND(symbol->name),
+	};
+	arr_append(EA, alloc);
+	return (e);
 }
 
 static Expression
 EA_allocate_intern(Symbol *symbol)
 {
+	B_DBG_TREE;
+
 	todo("%s", __func__);
 }
 
 Expression
 EA_allocate_symbol(Symbol *symbol)
 {
+	B_DBG_TREE;
+
 	switch (symbol->stype)
 	{
 		case STORAGE_AUTO:
@@ -67,9 +80,53 @@ EA_allocate_symbol(Symbol *symbol)
 	unreachable("%s: invalid StorageType", __func__);
 }
 
+Expression
+EA_allocate_immediate(i32 imm)
+{
+	B_DBG_TREE;
+
+	Expression	e = arr_count(EA);
+	ExprAlloc	alloc = 
+	{
+		.status = EXPR_STATUS_RESERVED,
+		.op = IMM_OPERAND(imm),
+	};
+	arr_append(EA, alloc);
+	return (e);
+}
+
+Expression
+EA_allocate_comparison(BOpType type)
+{
+	B_DBG_TREE;
+
+	Expression	e = arr_count(EA);
+	ExprAlloc	alloc = 
+	{
+		.status = EXPR_STATUS_RESERVED,
+		.op     = {0},
+		.data   = (void *)type,
+	};
+
+	arr_append(EA, alloc);
+	return (e);
+}
+
+Expression
+EA_expr_copy(Expression e)
+{
+	Expression	new = arr_count(EA);
+	ExprAlloc	alloc = *arr_nth(EA, e);
+
+	arr_append(EA, alloc);
+	return (new);
+}
+
 static x86RegisterBase
 RP_register_alloc_accum(void)
 {
+	B_DBG_TREE;
+
 	if (!arr_nth(RP.states, X86_BASE_A)->used)
 		return (X86_BASE_A);
 	return (0);
@@ -78,6 +135,8 @@ RP_register_alloc_accum(void)
 static x86RegisterBase
 RP_register_alloc_any(void)
 {
+	B_DBG_TREE;
+
 	x86RegisterBase	bases[] =
 	{
 		X86_BASE_D, X86_BASE_A,  X86_BASE_C,
@@ -97,6 +156,8 @@ RP_register_alloc_any(void)
 static x86RegisterBase
 RP_register_alloc_not(x86RegisterBase excl)
 {
+	B_DBG_TREE;
+
 	x86RegisterBase	base;
 
 	for (base = X86_BASE_A; base < X86_BASE_XENUM_LAST; ++base)
@@ -111,9 +172,11 @@ RP_register_alloc_not(x86RegisterBase excl)
 	return (0);
 }
 
-void
+_constructor(103) void
 RP_init(void)
 {
+	B_DBG_TREE;
+
 	RegState	empty = {0};
 
 	arr_reserve(RP.states, X86_BASE_XENUM_LAST);
@@ -124,6 +187,8 @@ RP_init(void)
 void
 RP_register_writeback(x86Register reg)
 {
+	B_DBG_TREE;
+
     x86RegisterBase base = X86_REG_BASE(reg);
 	RegState		*state = arr_nth(RP.states, base);
 
@@ -144,6 +209,8 @@ RP_register_writeback(x86Register reg)
 x86RegisterBase
 RP_register_spill(RegClass hint)
 {
+	B_DBG_TREE;
+
     x86RegisterBase victim = X86_BASE_A;
     u32				oldest = UINT32_MAX;
     
@@ -180,6 +247,8 @@ RP_register_spill(RegClass hint)
 x86Register
 RP_register_alloc(RegClass hint)
 {
+	B_DBG_TREE;
+
 	x86RegisterBase	base;
 
 	switch (hint)
@@ -218,6 +287,8 @@ found:
 void
 RP_register_free(x86Register reg)
 {
+	B_DBG_TREE;
+
 	x86RegisterBase	base = X86_REG_BASE(reg);
 
 	if (base >= X86_BASE_XENUM_LAST)
@@ -235,19 +306,35 @@ RP_register_free(x86Register reg)
 void
 EA_expr_update(Expression e, x86Operand op, ExprStatus status)
 {
+	B_DBG_TREE;
+
 	if (e >= arr_count(EA))
 		B_compiler_error("invalid Expression.");
 
 	ExprAlloc	*expr = arr_nth(EA, e);
 
-	expr->op = op;
+	expr->op     = op;
 	expr->status = status;
 }
 
-Expression
-EA_allocate_register(void)
+void
+EA_expr_cleanup(void)
 {
-	Expression	e = arr_count(EA);
+	B_DBG_TREE;
 
-	
+	arr_count(EA) = 0;
 }
+
+void
+*EA_get_data(Expression e)
+{
+	B_DBG_TREE;
+
+	if (e >= arr_count(EA))
+		B_compiler_error("invalid Expression.");
+
+	ExprAlloc	*expr = arr_nth(EA, e);
+
+	return (expr->data);
+}
+

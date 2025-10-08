@@ -1,8 +1,7 @@
 TODOS
 
-[X] modify symbol types to reflect storage type and variable type (vectors vs scalars)
-[X] finish ivals definition in the parser.
+char parsing
+finish nested function calls with args
+handle UNKNOWN symbols resolution.
 
-[ ] modify symbol handling to make internals go down
-[ ] dump the rodata section and data section.
-[ ] character constants parsing (Escapes)
+replace conditionType with BOPType

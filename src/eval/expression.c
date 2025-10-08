@@ -8,6 +8,8 @@
 static inline StringC
 B_constant_string_name(void)
 {
+	B_DBG_TREE;
+
 	static int	str_no = 0;
 
 	return (B_asprintf(".ro%d", str_no++));
@@ -16,6 +18,8 @@ B_constant_string_name(void)
 static inline Expression
 B_eval_constant_string(StringC str)
 {
+	B_DBG_TREE;
+
 	Expression	expr = arr_count(EA);
 
 	String		lit = strndup(str + 1, strlen(str) - 2);
@@ -33,6 +37,8 @@ B_eval_constant_string(StringC str)
 static inline Expression
 B_eval_constant_char(StringC str)
 {
+	B_DBG_TREE;
+
 	Expression	expr = arr_count(EA);
 	todo("evaluate constant chars.");
 	return (expr);
@@ -41,6 +47,8 @@ B_eval_constant_char(StringC str)
 static Expression
 B_eval_constant_strlit(StringC str)
 {
+	B_DBG_TREE;
+
 	ExprAlloc	new;
 
 	unused(new);
@@ -56,8 +64,10 @@ B_eval_constant_strlit(StringC str)
 static Expression
 B_eval_constant_int(i32 imm)
 {
+	B_DBG_TREE;
+
 	Expression	expr = arr_count(EA);
-	ExprAlloc	new  = { .op = IMM_OPERAND(imm) };
+	ExprAlloc	new  = { .op = IMM_OPERAND(imm), .status = EXPR_STATUS_RESERVED };
 
 	arr_append(EA, new);
 	return (expr);
@@ -66,6 +76,8 @@ B_eval_constant_int(i32 imm)
 Expression
 B_eval_constant(i32 imm, StringC str)
 {
+	B_DBG_TREE;
+
 	if (str)
 		return (B_eval_constant_strlit(str));
 	return (B_eval_constant_int(imm));
@@ -74,20 +86,15 @@ B_eval_constant(i32 imm, StringC str)
 Expression 
 B_eval_identifier(StringC identifier)
 {
+	B_DBG_TREE;
+
 	Symbol	*symbol = B_symbol_find(identifier);
-	Symbol	internal;
 
 	if (!symbol)
 	{
 		StringC	internal_name = B_asprintf("%s.%s", B.function_name, identifier);
-		internal = (Symbol)
-		{
-			.stype = STORAGE_INTERN,
-			.vtype = VARIABLE_SCALAR,
-			.name  = internal_name,
-		};
-		B_symbol_internal_add(&internal);
-		symbol = &internal;
+		B_eval_intern_def(internal_name);
+		symbol = arr_last(B.internals);
 	}
 
 	Expression	expr = EA_allocate_symbol(symbol);
@@ -96,16 +103,78 @@ B_eval_identifier(StringC identifier)
 }
 
 Expression
-B_eval_assignment(OpType type, Expression dst, Expression src)
+B_eval_assignment(BOpType type, Expression dst, Expression src)
 {
+	B_DBG_TREE;
+
 	switch (type)
 	{
-		case OP_NONE:
-		{
+		case BOP_NONE:
 			CG_move(dst, src);
 			break ;
-		}
+		case BOP_PLUS:
+			CG_binop(type, dst, src);
+			break ;
 		default:
-			todo("implement %s case for %s", __func__, x_tostr_OpType(type));
+			todo("implement %s case for %s", __func__, x_tostr_BOpType(type));
 	}
+	return (dst);
+}
+
+void
+B_eval_function_call_start(void)
+{
+	B_DBG_TREE;
+
+	Expressions	new_args = {0};
+
+	arr_reserve(new_args, 8);
+	arr_append(B.arguments, new_args);
+}
+
+Expression
+B_eval_function_call(Expression e)
+{
+	B_DBG_TREE;
+
+	CG_function_call(e);
+	CG_stack_release(WORD_SIZE * arr_count(*arr_last(B.arguments)));
+
+	arr_pop(B.arguments, 1);
+	return (e);
+}
+
+void
+B_eval_function_arg(Expression e)
+{
+	B_DBG_TREE;
+
+	CG_function_arg(e);	
+}
+
+void
+B_dwarf_statement(void)
+{
+	B_DBG_TREE;
+
+#if defined(B_DEBUG)
+	ASM_dir_loc("is_stmt 1");
+#endif // B_DEBUG
+}
+
+Expression
+B_builtin_char(Expression str, Expression idx)
+{
+	B_DBG_TREE;
+
+	CG_char(str, idx);
+	return (str);
+}
+
+void
+B_builtin_lchar(Expression str, Expression idx, Expression c)
+{
+	B_DBG_TREE;
+
+	CG_lchar(str, idx, c);
 }

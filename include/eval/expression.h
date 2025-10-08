@@ -13,6 +13,9 @@
 
 typedef u32	Expression;
 
+x_array(Expression,	 Expressions);
+x_array(Expressions, ArgumentStack);
+
 typedef struct b_rostring
 {
 	StringC	name;
@@ -29,8 +32,8 @@ B_eval_identifier(StringC identifier);
 
 x_enum
 (
-	OpType,
-	x_enum_prefix(OP),
+	BOpType,
+	x_enum_prefix(BOP),
 	x_enum_members 
 	(
 		(NONE ),
@@ -39,7 +42,50 @@ x_enum
 		(MULT ),
 		(DIV  ),
 		(MOD  ),
+		(AND  ),
+		(OR   ),
+		(SHL  ),
+		(SHR  ),
+		(EQ   ),
+		(NE   ),
+		(LT   ),
+		(GT   ),
+		(LE   ),
+		(GE   ),
 	)
 )
+
+x_enum
+(
+	UOpType,
+	x_enum_prefix(UOP),
+	x_enum_members
+	(
+		(STAR),
+		(ADDR),
+		(NEG ),
+		(NOT ),
+		(INCR),
+		(DECR),
+	)
+)
+
+Expression
+B_eval_assignment(BOpType type, Expression dst, Expression src);
+
+Expression
+B_eval_function_call(Expression f);
+
+void
+B_eval_function_arg(Expression arg);
+
+void
+B_eval_function_call_start(void);
+
+Expression
+B_builtin_char(Expression s, Expression i);
+
+void
+B_builtin_lchar(Expression s, Expression i, Expression c);
 
 #endif // _B_EXPRESSION_H

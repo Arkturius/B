@@ -7,19 +7,21 @@
 void
 B_scope_enter(void)
 {
+	B_DBG_TREE;
+
 	Scope	new = 
 	{
 		.start = arr_count(B.symbols),
 		.count = 0,
 	};
 	arr_append(B.scopes, new);
-
-//	warning("\033[31m %s: scopes.count = %d \033[0m", __func__, arr_count(B.scopes));
 }
 
 void
 B_scope_leave(void)
 {
+	B_DBG_TREE;
+
 	if (arr_count(B.scopes) <= 1)
 		B_compiler_error("Compiler can't leave global scope.");
 
@@ -29,13 +31,13 @@ B_scope_leave(void)
 
 	arr_pop(B.scopes, 1);
 	arr_pop(B.symbols, current->count);
-
-//	warning("\033[31m %s: scopes.count = %d \033[0m", __func__, arr_count(B.scopes));
 }
 
 void
 B_scope_grow(Symbol *symbol)
 {
+	B_DBG_TREE;
+
 	if (arr_count(B.scopes) < 1)
 		B_compiler_error("No global scope found. aborting.");
 

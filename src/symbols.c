@@ -8,6 +8,8 @@
 void
 B_symbol_add(Symbol *symbol)
 {
+	B_DBG_TREE;
+
 	B_scope_grow(symbol);
 	arr_append(B.symbols, *symbol);
 }
@@ -15,12 +17,16 @@ B_symbol_add(Symbol *symbol)
 void
 B_symbol_internal_add(Symbol *symbol)
 {
+	B_DBG_TREE;
+
 	arr_append(B.internals, *symbol);
 }
 
 Symbol
 *B_symbol_find(StringC name)
 {
+	B_DBG_TREE;
+
 	Scope	*global_scope = NULL;
 	Symbols	scope_symbols;
 
@@ -51,7 +57,7 @@ Symbol
 			return (internal);
 		}
 	}
-	free((String)internal_name);
+	free((String)internal_name); // todo arena management
 	
 	scope_symbols = x_subarray(B.symbols, global_scope->start, global_scope->count);
 	arr_foreach(Symbol, symbol, scope_symbols)
@@ -71,10 +77,10 @@ B_symbol_dump(Symbol *symbol)
 		2,
 		"Symbol "
 		"{ "
-		" name = %p:%16s,"
-		" storage type = %16s,"
-		" variable type = %16s,"
-		" offset = %4d,"
+		" \033[38;1mname\033[0m = %p:%16s,"
+		" \033[38;1mstorage type\033[0m = %16s,"
+		" \033[38;1mvariable type\033[0m = %18s,"
+		" \033[38;1moffset\033[0m = %4d,"
 		"}",
 		symbol->name, symbol->name,
 		x_tostr_StorageType(symbol->stype),
@@ -87,6 +93,8 @@ void
 B_symbol_table_dump(void)
 {
 	Symbols	scope_symbols;
+
+	return ;
 
 	dprintf(2, "-----------------------------------------------------\n");
 	arr_foreach(Scope, scope, B.scopes)

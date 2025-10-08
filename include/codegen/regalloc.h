@@ -2,7 +2,6 @@
 * regalloc.h
 */
 
-#include "eval/expression.h"
 #if !defined (_B_REGALLOC_H)
 # define _B_REGALLOC_H
 
@@ -74,11 +73,25 @@ void
 RP_register_free(x86Register reg);
 
 
+void
+*EA_get_data(Expression e);
 
 Expression
 EA_allocate_symbol(Symbol *symbol);
 
+Expression
+EA_allocate_comparison(BOpType type);
+
+Expression
+EA_allocate_immediate(i32 imm);
+
+Expression
+EA_expr_copy(Expression e);
+
 void
 EA_expr_update(Expression e, x86Operand op, ExprStatus status);
+
+void
+EA_expr_cleanup(void);
 
 #endif // _B_REGALLOC_H

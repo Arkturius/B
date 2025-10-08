@@ -12,6 +12,7 @@ SRCS		:=	bcompiler.c			\
 				eval/declaration.c	\
 				eval/control.c		\
 				eval/expression.c	\
+				eval/computing.c	\
 				codegen/regalloc.c	\
 				codegen/codegen.c	\
 				codegen/emission.c	\

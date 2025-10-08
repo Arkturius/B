@@ -6,6 +6,7 @@
 # define _EMISSION_H
 
 # include <codegen/codegen.h>
+# include <bdebug.h>
 
 typedef i32		x86Immediate;
 
@@ -38,6 +39,7 @@ x_enum
 	x_enum_prefix(X86_SIZE),
 	x_enum_members
 	(
+		(ARCH   ),
 		(BYTE, 1),
 		(WORD   ),
 		(DWORD  ),
@@ -121,10 +123,10 @@ typedef struct _x86_memory
 	x86Register		index;
 	x86MemoryScale	scale;
 	x86Immediate	displacement;
-	x86MemoryScale	size;
+	x86RegisterSize	size;
 }	x86Memory;
 
-# define	X86_MEM(...)	(x86Memory) { .size = X86_MEM_SCALE_ARCH, ##__VA_ARGS__ }
+# define	X86_MEM(...)	(x86Memory) { .size = X86_SIZE_DWORD, ##__VA_ARGS__ }
 
 typedef StringC	x86Symbol;
 
@@ -138,12 +140,13 @@ typedef struct	_x86_operand
 		x86Memory		mem;
 		x86Symbol		sym;
 	};
+	bool	internal;
 }	x86Operand;
 
-# define	IMM_OPERAND(_i)	(x86Operand){ .type = OPERAND_IMMEDIATE, .imm = (_i) }
-# define	REG_OPERAND(_r)	(x86Operand){ .type = OPERAND_REGISTER,  .reg = (_r) }
-# define	MEM_OPERAND(_m)	(x86Operand){ .type = OPERAND_MEMORY,    .mem = (_m) }
-# define	SYM_OPERAND(_s)	(x86Operand){ .type = OPERAND_SYMBOL,    .sym = (_s) }
+# define	IMM_OPERAND(_i)			(x86Operand){ .type = OPERAND_IMMEDIATE, .imm = (_i) }
+# define	REG_OPERAND(_r)			(x86Operand){ .type = OPERAND_REGISTER,  .reg = (_r) }
+# define	MEM_OPERAND(_m)			(x86Operand){ .type = OPERAND_MEMORY,    .mem = (_m) }
+# define	SYM_OPERAND(_s, ...)	(x86Operand){ .type = OPERAND_SYMBOL,    .sym = (_s), ##__VA_ARGS__ }
 
 /**
  * @brief	x86 instruction set. both enum and emission functions.
@@ -168,15 +171,15 @@ typedef struct	_x86_operand
 
 # define	ASM_gen_code_0(_enum, _instr)									\
 																			\
-	{ concat(ASM_emit_, _enum)(ASM_instr(_instr), NULL, NULL); }
+	{ B_DBG_TREE; concat(ASM_emit_, _enum)(ASM_instr(_instr), NULL, NULL); }
 
 # define	ASM_gen_code_1(_enum, _instr)									\
 																			\
-	{ concat(ASM_emit_, _enum)(ASM_instr(_instr), &a, NULL);   }
+	{ B_DBG_TREE; concat(ASM_emit_, _enum)(ASM_instr(_instr), &a, NULL); }
 
 # define	ASM_gen_code_2(_enum, _instr)									\
 																			\
-	{ concat(ASM_emit_, _enum)(ASM_instr(_instr), &a, &b);     }
+	{ B_DBG_TREE; concat(ASM_emit_, _enum)(ASM_instr(_instr), &a, &b); }
 
 # define	ASM_gen_decl(_n, _name)											\
 																			\
@@ -235,6 +238,13 @@ ASM_instruction_set
 	(1, NOT  , not  ),
 	(1, PUSH , push ),
 	(1, POP  , pop  ),
+	(1, JMP  , jmp  ),
+	(1, JE   , je   ),
+	(1, JNE  , jne  ),
+	(1, JG   , jg   ),
+	(1, JL   , jl   ),
+	(1, JGE  , jge  ),
+	(1, JLE  , jle  ),
 	(1, CALL , call ),
   	(0, RET  , ret  ),
   	(0, CDQ  , cdq  ),
@@ -273,10 +283,19 @@ x_enum
 	(
 		(SYNTAX	),
 		(ALIGN	),
+		(PALIGN	),
 		(SECTION),
 		(GLOBAL	),
 		(LONG	),
 		(STRING	),
+#ifdef B_DEBUG
+		(FILE   ),
+		(LOC    ),
+		(TYPE   ),
+		(SIZE   ),
+		(CFI_SP ),
+		(CFI_EP ),
+#endif
 	)
 );
 extern StringC	ASM_directive_names[DIRECTIVE_XENUM_LAST];
@@ -297,6 +316,9 @@ typedef struct
 # define	ASM_dir_align(_d)												\
 			ASM_directive(DIRECTIVE_ALIGN, .data = (void *)(long)(_d))
 
+# define	ASM_dir_palign(_d)												\
+			ASM_directive(DIRECTIVE_PALIGN, .data = (void *)(long)(_d))
+
 # define	ASM_dir_section(_s)												\
 			ASM_directive(DIRECTIVE_SECTION, .str = ASM_section_name(_s))
 
@@ -308,6 +330,28 @@ typedef struct
 
 # define	ASM_dir_string(_d)												\
 			ASM_directive(DIRECTIVE_STRING, .str  = (_d))
+
+# ifdef B_DEBUG
+
+# define	ASM_dir_file()													\
+			ASM_directive(DIRECTIVE_FILE)
+
+# define	ASM_dir_loc(_s)													\
+			ASM_directive(DIRECTIVE_LOC, .str = (_s))
+
+# define	ASM_dir_type(_d)												\
+			ASM_directive(DIRECTIVE_TYPE, .str  = (_d))
+
+# define	ASM_dir_size(_d)												\
+			ASM_directive(DIRECTIVE_SIZE, .str = (_d))
+
+# define	ASM_dir_cfi_sp()												\
+			ASM_directive(DIRECTIVE_CFI_SP)
+
+# define	ASM_dir_cfi_ep()												\
+			ASM_directive(DIRECTIVE_CFI_EP)
+
+# endif // B_DEBUG
 
 void
 ASM_emit_directive(DirectiveType t, DirectiveOpt opt);

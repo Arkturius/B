@@ -7,6 +7,7 @@
 #include <string.h>
 #include <stdio.h>
 
+#include <b.h>
 #include <eval/declaration.h>
 #include <codegen/emission.h>
 
@@ -15,7 +16,7 @@
 StringC	ASM_instruction_names[INSTRUCTION_XENUM_LAST] =
 {
 	[INSTRUCTION_MOV  ] = "mov",
-	[INSTRUCTION_MOVZX] = "movz",
+	[INSTRUCTION_MOVZX] = "movzx",
 	[INSTRUCTION_LEA  ] = "lea",
 	[INSTRUCTION_ADD  ] = "add",
 	[INSTRUCTION_SUB  ] = "sub",
@@ -31,6 +32,13 @@ StringC	ASM_instruction_names[INSTRUCTION_XENUM_LAST] =
 	[INSTRUCTION_TEST ] = "test",
 	[INSTRUCTION_PUSH ] = "push",
 	[INSTRUCTION_POP  ] = "pop",
+	[INSTRUCTION_JMP  ]	= "jmp",
+	[INSTRUCTION_JE   ] = "je",
+	[INSTRUCTION_JNE  ] = "jne",
+	[INSTRUCTION_JG   ] = "jg",
+	[INSTRUCTION_JL   ] = "jl",
+	[INSTRUCTION_JGE  ] = "jge",
+	[INSTRUCTION_JLE  ] = "jle",
 	[INSTRUCTION_CALL ] = "call",
 	[INSTRUCTION_RET  ] = "ret",
 	[INSTRUCTION_CDQ  ] = "cdq",
@@ -40,10 +48,21 @@ StringC	ASM_directive_names[DIRECTIVE_XENUM_LAST] =
 {
 	[DIRECTIVE_SYNTAX ] = ".intel_syntax",
 	[DIRECTIVE_ALIGN  ] = ".align",
+	[DIRECTIVE_PALIGN ] = ".p2align",
 	[DIRECTIVE_SECTION] = ".section",
-	[DIRECTIVE_GLOBAL ] = ".global",
+	[DIRECTIVE_GLOBAL ] = ".globl",
 	[DIRECTIVE_LONG   ] = ".long",
 	[DIRECTIVE_STRING ] = ".string",
+
+#if defined(B_DEBUG)
+	[DIRECTIVE_FILE   ] = ".file",
+	[DIRECTIVE_LOC    ] = ".loc",
+	[DIRECTIVE_TYPE   ] = ".type",
+	[DIRECTIVE_SIZE   ] = ".size",
+	[DIRECTIVE_CFI_SP ] = ".cfi_startproc",
+	[DIRECTIVE_CFI_EP ] = ".cfi_endproc",
+#endif
+
 };
 
 StringC	ASM_section_names[SECTION_XENUM_LAST] =
@@ -80,6 +99,7 @@ ASM_is_scale(x86MemoryScale scale)
 {
 	switch (scale)
 	{
+		case X86_MEM_SCALE_ARCH:
 		case X86_MEM_SCALE_BYTE:
 		case X86_MEM_SCALE_WORD:
 		case X86_MEM_SCALE_DWORD:
@@ -89,9 +109,26 @@ ASM_is_scale(x86MemoryScale scale)
 	}
 }
 
+static inline bool
+ASM_is_size(x86RegisterSize size)
+{
+	switch (size)
+	{
+		case X86_SIZE_ARCH:
+		case X86_SIZE_BYTE:
+		case X86_SIZE_WORD:
+		case X86_SIZE_DWORD:
+			return (true);
+		default:
+			return (false);
+	}
+}
+
 static void
 ASM_emit_long_list(void *data)
 {
+	B_DBG_TREE;
+
 	IVals	*ivals = data;
 
 	arr_foreach(IVal, ival, *ivals)
@@ -109,11 +146,13 @@ ASM_emit_long_list(void *data)
 void
 ASM_emit_directive(DirectiveType t, DirectiveOpt opt)
 {
+	B_DBG_TREE;
+
 	assert(t < DIRECTIVE_XENUM_LAST && "invalid DirectiveType");
 
 	StringC	dir_str = ASM_directive_name(t);
 	
-	printf("%s", dir_str);
+	printf("    %s", dir_str);
 	switch (t)
 	{
 		case DIRECTIVE_LONG:
@@ -125,11 +164,28 @@ ASM_emit_directive(DirectiveType t, DirectiveOpt opt)
 			break ;
 		}
 		case DIRECTIVE_ALIGN:
-			printf(" %ld", (long int) opt.data);
+			printf(" %ld, ", (long int) opt.data);
 			break ;
+		case DIRECTIVE_PALIGN:
+			printf(" %ld, 0x90", (long int) opt.data);
+			break ;
+#ifdef B_DEBUG
+		case DIRECTIVE_FILE:
+			printf(" 1 \"%s\" \"%s\"", B.directory, B.input_file);
+			break ;
+		case DIRECTIVE_LOC:
+			printf(" 1 %d %d %s", yylineno, b_col, opt.str);
+			break ;
+		case DIRECTIVE_TYPE:
+			printf(" %s, @function", opt.str);
+			break ;
+		case DIRECTIVE_CFI_SP:
+		case DIRECTIVE_CFI_EP:
+			break ;
+		case DIRECTIVE_SIZE:
+#endif
 		default:
 			printf(" %s", opt.str);
-			break ;
 	}
 	printf("\n");
 }
@@ -137,18 +193,24 @@ ASM_emit_directive(DirectiveType t, DirectiveOpt opt)
 void
 ASM_label(StringC label)
 {
+	B_DBG_TREE;
+
 	printf("%s:\n", label);
 }
 
 void
 ASM_emit_operand_immediate(x86Immediate imm)
 {
+	B_DBG_TREE;
+
 	printf("0x%02x", imm);
 }
 
 void
 ASM_emit_operand_register(x86Register reg)
 {
+	B_DBG_TREE;
+
 	StringC	name = ASM_register_name(reg);
 
 	assert(name && "invalid x86Register.");
@@ -157,22 +219,24 @@ ASM_emit_operand_register(x86Register reg)
 }
 
 static void
-ASM_emit_operand_memory_size(x86MemoryScale size, bool destination)
+ASM_emit_operand_memory_size(x86RegisterSize size, bool destination)
 {
-	assert(ASM_is_scale(size) && "invalid x86Memory size.");
+	B_DBG_TREE;
+
+	assert(ASM_is_size(size) && "invalid x86Memory size.");
 
 	if (destination)
 	{
 		switch (size)
 		{
-			case X86_MEM_SCALE_BYTE:
+			case X86_SIZE_BYTE:
 				printf("BYTE PTR ");
 				break ;
-			case X86_MEM_SCALE_WORD:
+			case X86_SIZE_WORD:
 				printf("WORD PTR ");
 				break ;
-			case X86_MEM_SCALE_ARCH:					  
-			case X86_MEM_SCALE_DWORD:
+			case X86_SIZE_ARCH:					  
+			case X86_SIZE_DWORD:
 				printf("DWORD PTR ");
 				break ;
 			default:
@@ -184,6 +248,8 @@ ASM_emit_operand_memory_size(x86MemoryScale size, bool destination)
 void
 ASM_emit_operand_memory(x86Memory mem, bool destination)
 {
+	B_DBG_TREE;
+
 	ASM_emit_operand_memory_size(mem.size, destination);
 
 	printf("[");
@@ -194,7 +260,7 @@ ASM_emit_operand_memory(x86Memory mem, bool destination)
 		printf(" + ");
 		ASM_emit_operand_register(mem.index);
 
-		if (ASM_is_scale(mem.scale))
+		if (mem.scale && ASM_is_scale(mem.scale))
 		{
 			printf(" * ");
 			ASM_emit_operand_immediate(mem.scale);
@@ -203,7 +269,10 @@ ASM_emit_operand_memory(x86Memory mem, bool destination)
 	if (mem.displacement)
 	{
 		printf(" %c ", mem.displacement > 0 ? '+' : '-');
-		ASM_emit_operand_immediate(mem.displacement);
+		if (mem.displacement > 0)
+			ASM_emit_operand_immediate(mem.displacement);
+		else
+			ASM_emit_operand_immediate(-mem.displacement);
 	}
 	printf("]");
 }
@@ -211,6 +280,8 @@ ASM_emit_operand_memory(x86Memory mem, bool destination)
 void
 ASM_emit_operand_symbol(x86Symbol sym)
 {
+	B_DBG_TREE;
+
 	assert(sym != NULL && "invalid x86Symbol (null).");
 
 	printf("[%s]", sym);
@@ -219,6 +290,8 @@ ASM_emit_operand_symbol(x86Symbol sym)
 void
 ASM_emit_symbol(x86Symbol sym)
 {
+	B_DBG_TREE;
+
 	assert(sym != NULL && "invalid x86Symbol (null).");
 
 	printf("%s", sym);
@@ -227,7 +300,10 @@ ASM_emit_symbol(x86Symbol sym)
 void
 ASM_emit_operand(x86Operand op)
 {
-	assert(op.type < OPERAND_XENUM_LAST && "invalid x86Operand.");
+	B_DBG_TREE;
+
+	if (op.type >= OPERAND_XENUM_LAST)
+		exit(1);
 
 	switch (op.type)
 	{
@@ -241,7 +317,10 @@ ASM_emit_operand(x86Operand op)
 			ASM_emit_operand_memory(op.mem, (op.mem.size != 0));
 			break ;
 		case OPERAND_SYMBOL:
-			ASM_emit_operand_symbol(op.sym);
+			if (op.internal)
+				ASM_emit_symbol(op.sym);
+			else
+				ASM_emit_operand_symbol(op.sym);
 			break ;
 		default:
 			break ;
@@ -251,11 +330,13 @@ ASM_emit_operand(x86Operand op)
 void
 ASM_emit_x86Instruction(x86Instruction instr, x86Operand *a, x86Operand *b)
 {
+	B_DBG_TREE;
+
 	assert(instr < INSTRUCTION_XENUM_LAST && "invalid x86Instruction.");
 
 	StringC	mnemonic = ASM_instruction_name(instr);
 
-	printf("  %s%*.s", mnemonic, (int)(8 - strlen(mnemonic)), "");
+	printf("    %s%*.s", mnemonic, (int)(8 - strlen(mnemonic)), "");
 	
 	if (a)
 		ASM_emit_operand(*a);

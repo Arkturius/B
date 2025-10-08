@@ -93,14 +93,14 @@ typedef i32         Offset;
 																			\
 	do {																	\
 		_x_log(x_todo_prefix, _s, ##__VA_ARGS__);							\
-		abort();															\
+		exit(1);															\
 	} while (0);
 
 # define	x_unreachable(_s, ...)											\
 																			\
 	do {																	\
 		_x_log(x_unreachable_prefix, _s, ##__VA_ARGS__);					\
-		abort();															\
+		exit(1);															\
 	} while (0);
 
 # define	x_log(_s, ...)		_x_log(x_log_prefix, _s, ##__VA_ARGS__)
@@ -112,6 +112,7 @@ typedef i32         Offset;
 
 # define    shift_args(ac, av)  (ac--, *av++)
 # define    unused(_x)          (void)(_x)
+# define	breakpoint			asm("int3")
 
 # define	min(_a, _b)			((_a) < (_b) ? (_a) : (_b))
 # define	max(_a, _b)			((_a) > (_b) ? (_a) : (_b))
@@ -230,13 +231,14 @@ typedef i32         Offset;
 		if ((x_arr_size(_arr) << 1) > X_ARR_MAX_SIZE)						\
 			abort();														\
 		uint32_t new_capacity = 0;											\
+		uint32_t wanted = (_n);												\
 		if (x_arr_size(_arr) == 0)											\
-			new_capacity = _n ? _n : X_ARR_MIN_SIZE;						\
-		else if (x_arr_count(_arr) + 1 == x_arr_size(_arr))					\
-			new_capacity = (_arr.capacity << 1);							\
+			new_capacity = wanted ? wanted : X_ARR_MIN_SIZE;				\
+		else if (x_arr_count(_arr) + 1 >= x_arr_size(_arr))					\
+			new_capacity = ((_arr).capacity << 1);							\
 		if (new_capacity)													\
 		{																	\
-			_arr.items = realloc											\
+			(_arr).items = realloc											\
 			(																\
 				x_arr_first(_arr),											\
 				new_capacity * sizeof *x_arr_first(_arr)					\
@@ -273,7 +275,7 @@ typedef i32         Offset;
 	do {																	\
 		if (x_arr_count(_arr) + 1 > x_arr_size(_arr))						\
 			x_arr_realloc(_arr, 0);											\
-		_arr.items[x_arr_count(_arr)++] = _e;								\
+		(_arr).items[x_arr_count(_arr)++] = _e;								\
 	} while (0)
 
 # define	x_arr_pop(_arr, _n)												\

@@ -39,6 +39,9 @@ void
 CG_function(StringC name);
 
 void
+CG_return(Expression e);
+
+void
 CG_prolog(void);
 
 void
@@ -54,5 +57,34 @@ CG_stack_release(Size size);
 
 void
 CG_move(Expression dst, Expression src);
+
+void
+CG_binop(BOpType op, Expression a, Expression b);
+
+void
+CG_compare(Expression a, Expression b);
+
+void
+CG_test(Expression e);
+
+void
+CG_jump_label(StringC lbl, BOpType type);
+
+void
+CG_jump_compare(StringC lbl, Expression e);
+
+void
+CG_function_call(Expression e);
+
+void
+CG_function_arg(Expression e);
+
+
+
+void
+CG_char(Expression s, Expression i);
+
+void
+CG_lchar(Expression s, Expression i, Expression c);
 
 #endif // _B_CODEGEN_H

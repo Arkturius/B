@@ -5,6 +5,8 @@
 #if !defined (_B_COMPILER_H)
 # define _B_COMPILER_H
 
+# include <assert.h>
+
 # define XLIB_NO_PREFIX
 # include <xlib.h>
 
@@ -40,10 +42,16 @@ typedef struct b_compiler
 	Size		auto_size;
 	Size		param_size;
 
+	ArgumentStack	arguments;
+
 	StringC		function_name;
+
 	IVals		ivals;
 
 	SectionType	section;
+	
+	String		input_file;
+	String		directory;
 }	Compiler;
 
 extern Compiler	B;
@@ -59,5 +67,7 @@ B_compiler_error(StringC reason);
 
 StringC
 B_asprintf(StringC fmt, ...);
+
+# include <bdebug.h>
 
 #endif // _B_COMPILER_H

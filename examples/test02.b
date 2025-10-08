@@ -1,33 +1,34 @@
-putchar(c)
-{
-	extrn syscall;
+stdin		0;
+stdout		1;
+stderr		2;
 
-	return (syscall(4, 1, &c, 1));
-}
+total		0;
+board[3]	0x30303030, 0x30303030, 0xa3030;
 
-display(rv)
+strlen(s)
 {
-	auto	i, c;
+	auto	i;
 
 	i = 0;
-	while (i < 10)
-	{
-		c = char(rv, i);
-		putchar(c + '0');
-		++i;
-	}
-	putchar(10);
+	while (char(s, i)) ++i;
+	return (i);
 }
 
-verif(rv, depth, new)
+putstr(s)
 {
-	auto	col;
-	auto	c;
+	extrn	syscall;
+
+	syscall(4, stdout, s, strlen(s));
+}
+
+verif(depth, new)
+{
+	auto	col, c;
 
 	col = 0;
 	while (col < depth)
 	{
-		c = char(rv, col);
+		c = char(board, col) - 48;
 		if (c == new)
 			return (0);
 		if (c == new + (depth - col))
@@ -39,38 +40,30 @@ verif(rv, depth, new)
 	return (1);
 }
 
-rec_queens(depth, rv)
+rec_queens(depth)
 {
 	auto	i;
-	auto	total;
 
 	i = 0;
-	total = 0;
 	while (i < 10)
 	{
-		if (verif(rv, depth, i))
+		if (verif(depth, i))
 		{
-			lchar(rv, depth, i);
+			lchar(board, depth, i + 48);
 			if (depth == 9)
 			{
-				display(rv);
-				return (1);
+				putstr(board);
+				++total;
 			}
 			else
-				total =+ rec_queens(depth + 1, rv);
+				rec_queens(depth + 1);
 		}
 		++i;
 	}
-	return (total);
 }
 
 main(argc, argv, envp)
 {
-	auto	rv[3], n;
-
-	rv[0] = 0;
-	rv[1] = 0;
-	rv[2] = 0;
-	n = rec_queens(0, rv);
-	return (n);
+	rec_queens(0);
+	return (total);
 }

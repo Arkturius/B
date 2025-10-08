@@ -106,7 +106,7 @@ CHAR_IN_CHAR	([^'\n]|{ESCAPE})
 {ALPHA}({ALPHA}|{DIGIT})*		{ yylval.s = strdup(yytext); return NAME; }
 
 [ \t]+							
-\n								{ yylineno++; b_row_start = yytext + yyleng; b_col = 1; }
+\n								{ yylineno++; b_row_start = yytext + yyleng; b_col = 1; B_dwarf_statement(); }
 
 "/\*"([^*]|\*+[^*/])*\*+"/"
 

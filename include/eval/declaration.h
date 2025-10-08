@@ -39,7 +39,7 @@ void
 B_eval_function_def(StringC name);
 
 void
-B_eval_intern_def(void);
+B_eval_intern_def(StringC name);
 
 void
 B_eval_simple_def(StringC name);
