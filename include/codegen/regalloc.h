@@ -83,6 +83,9 @@ Expression
 EA_allocate_comparison(BOpType type);
 
 Expression
+EA_allocate_string(StringC name);
+
+Expression
 EA_allocate_immediate(i32 imm);
 
 Expression

@@ -12,7 +12,7 @@ B_constant_string_name(void)
 
 	static int	str_no = 0;
 
-	return (B_asprintf(".ro%d", str_no++));
+	return (B_asprintf(".ROS%d", str_no++));
 }
 
 static inline Expression
@@ -20,17 +20,17 @@ B_eval_constant_string(StringC str)
 {
 	B_DBG_TREE;
 
-	Expression	expr = arr_count(EA);
-
 	String		lit = strndup(str + 1, strlen(str) - 2);
+	StringC		name = B_constant_string_name();
 	ROString	new =
 	{
-		.name = B_constant_string_name(),
+		.name = name,
 		.content = B_asprintf("%s", lit),
 	};
 	free(lit); // TODO: remove this when the string arena kicks in.
-
 	arr_append(B.rostrings, new);
+
+	Expression	expr = EA_allocate_string(name);
 	return (expr);
 }
 
@@ -66,10 +66,7 @@ B_eval_constant_int(i32 imm)
 {
 	B_DBG_TREE;
 
-	Expression	expr = arr_count(EA);
-	ExprAlloc	new  = { .op = IMM_OPERAND(imm), .status = EXPR_STATUS_RESERVED };
-
-	arr_append(EA, new);
+	Expression	expr = EA_allocate_immediate(imm); 
 	return (expr);
 }
 

@@ -81,6 +81,21 @@ EA_allocate_symbol(Symbol *symbol)
 }
 
 Expression
+EA_allocate_string(StringC name)
+{
+	B_DBG_TREE;
+
+	Expression	e = arr_count(EA);
+	ExprAlloc	alloc = 
+	{
+		.status = EXPR_STATUS_RESERVED,
+		.op = SYM_OPERAND(name),
+	};
+	arr_append(EA, alloc);
+	return (e);
+}
+
+Expression
 EA_allocate_immediate(i32 imm)
 {
 	B_DBG_TREE;

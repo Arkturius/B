@@ -266,9 +266,11 @@ B_compiler_run(void)
 	B_DBG_TREE;
 
 	B.input_file = (String) input_file;
-	B.directory = realpath(input_file, B.directory);
-	
-	B.directory[strlen(B.directory) - strlen(input_file) - 1] = 0;
+	if (B.input_file)
+	{
+		B.directory = realpath(input_file, B.directory);
+		B.directory[strlen(B.directory) - strlen(input_file) - 1] = 0;
+	}
 
 	bool ret = yyparse();
 
