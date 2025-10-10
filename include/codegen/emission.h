@@ -223,6 +223,7 @@ ASM_instruction_set
 	x86Instruction,
 	(2, MOV  , mov  ),
  	(2, MOVZX, movzx),
+	(2, CMOVE, cmove),
 	(2, LEA  , lea  ),
 	(2, ADD  , add  ),
 	(2, SUB  , sub  ),
@@ -245,6 +246,12 @@ ASM_instruction_set
 	(1, JL   , jl   ),
 	(1, JGE  , jge  ),
 	(1, JLE  , jle  ),
+	(1, SETE , sete ),
+	(1, SETNE, setne),
+	(1, SETG , setg ),
+	(1, SETL , setl ),
+	(1, SETGE, setge),
+	(1, SETLE, setle),
 	(1, CALL , call ),
   	(0, RET  , ret  ),
   	(0, CDQ  , cdq  ),
@@ -328,8 +335,8 @@ typedef struct
 # define	ASM_dir_long(_s, _d)											\
 			ASM_directive(DIRECTIVE_LONG, .str = (_s), .data = (void *)(_d))
 
-# define	ASM_dir_string(_d)												\
-			ASM_directive(DIRECTIVE_STRING, .str  = (_d))
+# define	ASM_dir_string(_s)												\
+			ASM_directive(DIRECTIVE_STRING, .str  = (_s))
 
 # ifdef B_DEBUG
 

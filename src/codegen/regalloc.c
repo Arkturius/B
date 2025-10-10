@@ -2,6 +2,7 @@
 * regalloc.c
 */
 
+#include "eval/expression.h"
 #include <b.h>
 #include <codegen/regalloc.h>
 
@@ -13,25 +14,26 @@ EA_allocate_auto(Symbol *symbol)
 {
 	B_DBG_TREE;
 
+	Expression	e = arr_count(EA);
+	ExprAlloc	alloc = 
+	{
+		.status = EXPR_STATUS_RESERVED,
+		.op = MEM_OPERAND(X86_MEM
+		(
+			.base         = X86_REG_EBP,
+			.displacement = symbol->off * WORD_SIZE
+		)),
+	};
+
 	switch (symbol->vtype)
 	{
-		case VARIABLE_SCALAR:
 		case VARIABLE_VECTOR:
+			alloc.data = symbol;
+		__attribute__((fallthrough));
+		case VARIABLE_SCALAR:
 		case VARIABLE_UNKNOWN:
-		{
-			Expression	e = arr_count(EA);
-			ExprAlloc	alloc = 
-			{
-				.status = EXPR_STATUS_RESERVED,
-				.op = MEM_OPERAND(X86_MEM
-				(
-					.base         = X86_REG_EBP,
-					.displacement = symbol->off * WORD_SIZE
-				))
-			};
 			arr_append(EA, alloc);
 			return (e);
-		}
 		default:
 			break ;
 	}
@@ -48,6 +50,7 @@ EA_allocate_extern(Symbol *symbol)
 	{
 		.status = EXPR_STATUS_RESERVED,
 		.op = SYM_OPERAND(symbol->name),
+		.data = symbol,
 	};
 	arr_append(EA, alloc);
 	return (e);
@@ -58,7 +61,15 @@ EA_allocate_intern(Symbol *symbol)
 {
 	B_DBG_TREE;
 
-	todo("%s", __func__);
+	Expression	e = arr_count(EA);
+	ExprAlloc	alloc = 
+	{
+		.status = EXPR_STATUS_RESERVED,
+		.op = SYM_OPERAND(symbol->name),
+		.data = symbol,
+	};
+	arr_append(EA, alloc);
+	return (e);
 }
 
 Expression
@@ -111,20 +122,20 @@ EA_allocate_immediate(i32 imm)
 }
 
 Expression
-EA_allocate_comparison(BOpType type)
+EA_allocate_comparison(BOpType type, Expression a, Expression b)
 {
 	B_DBG_TREE;
 
-	Expression	e = arr_count(EA);
-	ExprAlloc	alloc = 
-	{
-		.status = EXPR_STATUS_RESERVED,
-		.op     = {0},
-		.data   = (void *)type,
-	};
+	ExprAlloc	*alloc = arr_nth(EA, a);
 
-	arr_append(EA, alloc);
-	return (e);
+	alloc->status = EXPR_STATUS_COMPARE;
+	alloc->data = (void *)(long)b;
+
+	ExprAlloc	*b_ptr = arr_nth(EA, b);
+
+	b_ptr->data = (void *)(long)type;
+
+	return (a);
 }
 
 Expression
@@ -197,6 +208,14 @@ RP_init(void)
 	arr_reserve(RP.states, X86_BASE_XENUM_LAST);
 	for (x86RegisterBase base = 0; base < X86_BASE_XENUM_LAST; ++base)
 		arr_append(RP.states, empty);
+
+	ExprAlloc	alloc = 
+	{
+		.op = IMM_OPERAND(0),
+		.status = EXPR_STATUS_RESERVED,
+		.data = (void *)EXPR_INVALID,
+	};
+	arr_append(EA, alloc);
 }
 
 void
@@ -330,6 +349,7 @@ EA_expr_update(Expression e, x86Operand op, ExprStatus status)
 
 	expr->op     = op;
 	expr->status = status;
+	expr->data   = NULL;
 }
 
 void
@@ -337,7 +357,12 @@ EA_expr_cleanup(void)
 {
 	B_DBG_TREE;
 
-	arr_count(EA) = 0;
+	arr_count(EA) = 1;
+	arr_foreach(RegState, state, RP.states)
+	{
+		state->used = false;
+		state->dirty = false;
+	}
 }
 
 void

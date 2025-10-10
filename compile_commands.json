@@ -1,21 +1,8 @@
 [
  {
-  "directory": "/home/rgramati/Documents/B",
+  "directory": "/home/rgramati/Documents/42spe/B",
   "arguments": [
-   "cc",
-   "build/bparser.c",
-   "build/blexer.c",
-   "-o",
-   "B",
-   "-Isrc",
-   "-g"
-  ],
-  "file": "build/blexer.c"
- },
- {
-  "directory": "/home/rgramati/Documents/B",
-  "arguments": [
-   "cc",
+   "gcc",
    "-Wall",
    "-Wextra",
    "-Wno-return-type",
@@ -24,19 +11,23 @@
    "-Wno-array-bounds",
    "build/bparser.c",
    "build/blexer.c",
-   "src/b.c",
-   "src/declarations.c",
-   "src/expression.c",
+   "src/bcompiler.c",
    "src/symbols.c",
-   "src/program.c",
-   "src/codegen.c",
-   "src/utils.c",
+   "src/scopes.c",
+   "src/eval/declaration.c",
+   "src/eval/control.c",
+   "src/eval/expression.c",
+   "src/eval/computing.c",
+   "src/codegen/regalloc.c",
+   "src/codegen/codegen.c",
+   "src/codegen/emission.c",
    "-o",
    "B",
    "-Iinclude",
    "-Ibuild",
-   "-g"
+   "-g",
+   "-DB_DEBUG=1"
   ],
-  "file": "src/utils.c"
+  "file": "src/codegen/emission.c"
  }
 ]

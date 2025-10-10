@@ -19,6 +19,7 @@ x_enum
 		(FREE     ),
 		(ALLOCATED),
 		(RESERVED ),
+		(COMPARE  ),
 		(SPILLED  ),
 	)
 )
@@ -80,7 +81,7 @@ Expression
 EA_allocate_symbol(Symbol *symbol);
 
 Expression
-EA_allocate_comparison(BOpType type);
+EA_allocate_comparison(BOpType type, Expression a, Expression b);
 
 Expression
 EA_allocate_string(StringC name);

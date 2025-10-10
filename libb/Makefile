@@ -10,24 +10,34 @@ OBJ_DIR		:=	build
 
 OBJS		:=	$(addprefix $(OBJ_DIR)/, $(SRCS_B:%.b=%.o))
 
+RM			:=	rm -rf
+MKDIR		:=	mkdir -p
+
+CC			:=	gcc
+CFLAGS		:=	-c -m32 -x assembler
+
 all:	$(NAME)
 
 $(NAME):	$(OBJS)
-	@make -C .. --no-print-directory
+	@$(MAKE) --silent --no-print-directory -C ..
 	@echo " ■  archiving	$@"
 	@ar -rcs $@.a $^
 
 $(OBJ_DIR)/%.s:	%.b
-	@mkdir -p $(@D)
+	@$(MKDIR) $(@D)
 	@.././B $< > $@
 
 $(OBJ_DIR)/%.o: $(OBJ_DIR)/%.s
-	@gcc -c -m32 -x assembler $< -o $@
+	@$(CC) $(CFLAGS) $< -o $@
 
 clean:
-	@rm -rf $(NAME).a
+	@if [ -d $(OBJ_DIR) ]; then \
+		echo " ■  deleted	$(NAME)/$(OBJ_DIR)"; \
+		$(RM) $(OBJ_DIR); \
+	fi
 
 fclean:		clean
-	@rm -rf $(OBJ_DIR)
+	@$(RM) $(NAME)
+	@echo " ■  deleted	$(NAME)"
 
 re:			fclean all

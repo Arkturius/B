@@ -128,10 +128,8 @@ ival_list
 	;
 
 ival
-	: CONSTANT
-		{ B_eval_ival($1, NULL); }
-	| NAME
-		{ B_eval_ival(0, $1); }
+	: constant
+		{ B_eval_ival($1); }
 	;
 
 function
@@ -312,21 +310,21 @@ expr_logical_and
 expr_equality
 	: expr_relational
 	| expr_equality EQ expr_relational
-		{ $$ = B_compute_comparison(BOP_EQ, $1, $3); }
+		{ $$ = B_compute_binary_op(BOP_EQ, $1, $3); }
 	| expr_equality NE expr_relational
-		{ $$ = B_compute_comparison(BOP_NE, $1, $3); }
+		{ $$ = B_compute_binary_op(BOP_NE, $1, $3); }
 	;
 
 expr_relational
 	: expr_shift
 	| expr_relational LT expr_shift
-		{ $$ = B_compute_comparison(BOP_LT, $1, $3); }
+		{ $$ = B_compute_binary_op(BOP_LT, $1, $3); }
 	| expr_relational LE expr_shift
-		{ $$ = B_compute_comparison(BOP_LE, $1, $3); }
+		{ $$ = B_compute_binary_op(BOP_LE, $1, $3); }
 	| expr_relational GT expr_shift
-		{ $$ = B_compute_comparison(BOP_GT, $1, $3); }
+		{ $$ = B_compute_binary_op(BOP_GT, $1, $3); }
 	| expr_relational GE expr_shift
-		{ $$ = B_compute_comparison(BOP_GE, $1, $3); }
+		{ $$ = B_compute_binary_op(BOP_GE, $1, $3); }
 	;
 
 expr_shift
@@ -377,6 +375,7 @@ expr_postfix
 	| expr_postfix INCR
 	| expr_postfix DECR
 	| expr_postfix LBRACKET expr RBRACKET
+		{ $$ = B_eval_subscript($1, $3); }
 	| expr_postfix call_start LPAREN argument_list RPAREN
 		{ $$ = B_eval_function_call($1); }
 	| expr_postfix call_start LPAREN RPAREN

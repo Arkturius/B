@@ -8,10 +8,12 @@
 # define XLIB_NO_PREFIX
 # include <xlib.h>
 
+# include <eval/expression.h>
+
 typedef struct	b_ival
 {
-	StringC	sym;
-	i32		imm;
+	Expression	expr;
+	i32			imm;
 }	IVal;
 
 x_array(IVal, IVals);
@@ -49,7 +51,7 @@ B_eval_vector_def(StringC name, Size size);
 
 
 void
-B_eval_ival(i32 imm, StringC sym);
+B_eval_ival(Expression e);
 
 void
 B_eval_ival_end(void);

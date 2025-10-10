@@ -83,6 +83,9 @@ void
 B_eval_function_call_start(void);
 
 Expression
+B_eval_subscript(Expression arr, Expression idx);
+
+Expression
 B_builtin_char(Expression s, Expression i);
 
 void

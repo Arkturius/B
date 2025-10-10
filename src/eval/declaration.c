@@ -34,6 +34,7 @@ B_auto_vector(StringC name, Size size)
 		.size  = size,
 		.off   = -(B.auto_size + 1),
 	};
+	log("registered a vector: size = %d, symbol->off = %d", size, vector.off);
 	B_symbol_add(&vector);
 	B.auto_size += size;
 }
@@ -43,7 +44,7 @@ B_auto_param(StringC name)
 {
 	B_DBG_TREE;
 
-	Symbol	vector = 
+	Symbol	param = 
 	{
 		.name  = name,
 		.stype = STORAGE_AUTO,
@@ -51,7 +52,7 @@ B_auto_param(StringC name)
 		.size  = 1,
 		.off   = B.param_size + 2,
 	};
-	B_symbol_add(&vector);
+	B_symbol_add(&param);
 	B.param_size++;
 }
 
@@ -199,30 +200,22 @@ B_eval_simple_def(StringC name)
 	B_DBG_TREE;
 
 	B_external_scalar(name);
-	CG_label(name, false);
-	CG_data_scalar_list();
+	CG_data_scalar_list(name);
 }
 
 void
 B_eval_vector_def(StringC name, Size size)
 {
 	B_DBG_TREE;
-
+	
 	B_external_vector(name, size);
-	CG_label(name, true);
-	CG_data_vector(size);
+	CG_data_vector(name, size);
 }
 
 void
-B_eval_ival(i32 imm, StringC sym)
+B_eval_ival(Expression e)
 {
 	B_DBG_TREE;
 
-	IVal	value = {0};
-
-	if (sym)
-		value.sym = sym;
-	else
-		value.imm = imm;
-	arr_append(B.ivals, value);
+	arr_append(B.ivals, e);
 }

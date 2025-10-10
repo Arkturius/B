@@ -69,6 +69,20 @@ Symbol
 	return (NULL);
 }
 
+bool
+B_is_symbol(Symbol *sym)
+{
+	if (!sym)
+		return (false);
+
+	arr_foreach(Symbol, symbol, B.symbols)
+	{
+		if (symbol == sym)
+			return (true);
+	}
+	return (false);
+}
+
 void
 B_symbol_dump(Symbol *symbol)
 {

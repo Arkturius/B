@@ -58,6 +58,16 @@ void
 B_control_while_stop(void);
 
 void
+B_control_if_start(Expression e);
+
+void
+B_control_if_stop(bool has_else);
+
+void
+B_control_else_stop(void);
+
+
+void
 B_control_return(Expression e);
 
 #endif // _B_CONTROL_H

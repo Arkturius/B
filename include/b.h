@@ -46,7 +46,7 @@ typedef struct b_compiler
 
 	StringC		function_name;
 
-	IVals		ivals;
+	Expressions	ivals;
 
 	SectionType	section;
 	

@@ -1,6 +1,6 @@
 close(fd)
 {
-	extrn syscall;
+	extrn	syscall;
 
 	return (syscall(3, fd));
 }

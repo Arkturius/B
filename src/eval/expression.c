@@ -12,7 +12,7 @@ B_constant_string_name(void)
 
 	static int	str_no = 0;
 
-	return (B_asprintf(".ROS%d", str_no++));
+	return (B_asprintf("ROS%d", str_no++));
 }
 
 static inline Expression
@@ -116,6 +116,15 @@ B_eval_assignment(BOpType type, Expression dst, Expression src)
 			todo("implement %s case for %s", __func__, x_tostr_BOpType(type));
 	}
 	return (dst);
+}
+
+Expression
+B_eval_subscript(Expression arr, Expression idx)
+{
+	B_DBG_TREE;
+
+	CG_subscript(arr, idx);
+	return (arr);
 }
 
 void

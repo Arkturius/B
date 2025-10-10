@@ -1,6 +1,6 @@
 chmod(filename, mode)
 {
-	extrn syscall;
+	extrn	syscall;
 
 	return (syscall(0x5a, filename, mode));
 }

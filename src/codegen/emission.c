@@ -17,6 +17,7 @@ StringC	ASM_instruction_names[INSTRUCTION_XENUM_LAST] =
 {
 	[INSTRUCTION_MOV  ] = "mov",
 	[INSTRUCTION_MOVZX] = "movzx",
+	[INSTRUCTION_CMOVE] = "cmove",
 	[INSTRUCTION_LEA  ] = "lea",
 	[INSTRUCTION_ADD  ] = "add",
 	[INSTRUCTION_SUB  ] = "sub",
@@ -39,6 +40,12 @@ StringC	ASM_instruction_names[INSTRUCTION_XENUM_LAST] =
 	[INSTRUCTION_JL   ] = "jl",
 	[INSTRUCTION_JGE  ] = "jge",
 	[INSTRUCTION_JLE  ] = "jle",
+	[INSTRUCTION_SETE ] = "sete",
+	[INSTRUCTION_SETNE] = "setne",
+	[INSTRUCTION_SETG ] = "setg",
+	[INSTRUCTION_SETL ] = "setl",
+	[INSTRUCTION_SETGE] = "setge",
+	[INSTRUCTION_SETLE] = "setle",
 	[INSTRUCTION_CALL ] = "call",
 	[INSTRUCTION_RET  ] = "ret",
 	[INSTRUCTION_CDQ  ] = "cdq",
@@ -124,72 +131,6 @@ ASM_is_size(x86RegisterSize size)
 	}
 }
 
-static void
-ASM_emit_long_list(void *data)
-{
-	B_DBG_TREE;
-
-	IVals	*ivals = data;
-
-	arr_foreach(IVal, ival, *ivals)
-	{
-		if (arr_index(*ivals, ival) > 0)
-			printf(",");
-		printf(" ");
-		if (ival->sym)
-			ASM_emit_symbol(ival->sym);
-		else
-			ASM_emit_operand_immediate(ival->imm);
-	}
-}
-
-void
-ASM_emit_directive(DirectiveType t, DirectiveOpt opt)
-{
-	B_DBG_TREE;
-
-	assert(t < DIRECTIVE_XENUM_LAST && "invalid DirectiveType");
-
-	StringC	dir_str = ASM_directive_name(t);
-	
-	printf("    %s", dir_str);
-	switch (t)
-	{
-		case DIRECTIVE_LONG:
-		{
-			if (opt.str)
-				printf(" %s + %ld", opt.str, (long int) opt.data);
-			else
-				ASM_emit_long_list(opt.data);
-			break ;
-		}
-		case DIRECTIVE_ALIGN:
-			printf(" %ld, ", (long int) opt.data);
-			break ;
-		case DIRECTIVE_PALIGN:
-			printf(" %ld, 0x90", (long int) opt.data);
-			break ;
-#ifdef B_DEBUG
-		case DIRECTIVE_FILE:
-			printf(" 1 \"%s\" \"%s\"", B.directory, B.input_file);
-			break ;
-		case DIRECTIVE_LOC:
-			printf(" 1 %d %d %s", yylineno, b_col, opt.str);
-			break ;
-		case DIRECTIVE_TYPE:
-			printf(" %s, @function", opt.str);
-			break ;
-		case DIRECTIVE_CFI_SP:
-		case DIRECTIVE_CFI_EP:
-			break ;
-		case DIRECTIVE_SIZE:
-#endif
-		default:
-			printf(" %s", opt.str);
-	}
-	printf("\n");
-}
-
 void
 ASM_label(StringC label)
 {
@@ -213,7 +154,8 @@ ASM_emit_operand_register(x86Register reg)
 
 	StringC	name = ASM_register_name(reg);
 
-	assert(name && "invalid x86Register.");
+	if (!name)
+		unreachable("invalid x86Register.");
 
 	printf("%s", name);
 }
@@ -284,6 +226,7 @@ ASM_emit_operand_symbol(x86Symbol sym)
 
 	assert(sym != NULL && "invalid x86Symbol (null).");
 
+	ASM_emit_operand_memory_size(X86_SIZE_DWORD, true);
 	printf("[%s]", sym);
 }
 
@@ -325,6 +268,76 @@ ASM_emit_operand(x86Operand op)
 		default:
 			break ;
 	}
+}
+
+static void
+ASM_emit_long_list(void *data)
+{
+	B_DBG_TREE;
+
+	Expressions	*ivals = data;
+
+	arr_foreach(Expression, ival, *ivals)
+	{
+		if (arr_index(*ivals, ival) > 0)
+			printf(",");
+		printf(" ");
+
+		x86Operand	op = arr_nth(EA, *ival)->op;
+
+		op.internal = true;
+		ASM_emit_operand(op);
+	}
+}
+
+void
+ASM_emit_directive(DirectiveType t, DirectiveOpt opt)
+{
+	B_DBG_TREE;
+
+	assert(t < DIRECTIVE_XENUM_LAST && "invalid DirectiveType");
+
+	StringC	dir_str = ASM_directive_name(t);
+	
+	printf("    %s", dir_str);
+	switch (t)
+	{
+		case DIRECTIVE_LONG:
+		{
+			if (opt.str)
+				printf(" %s + %ld", opt.str, (long int) opt.data);
+			else
+				ASM_emit_long_list(opt.data);
+			break ;
+		}
+		case DIRECTIVE_ALIGN:
+			printf(" %ld, ", (long int) opt.data);
+			break ;
+		case DIRECTIVE_PALIGN:
+			printf(" %ld, 0x90", (long int) opt.data);
+			break ;
+		case DIRECTIVE_STRING:
+			printf(" \"%s\"", opt.str);
+			break ;
+#ifdef B_DEBUG
+		case DIRECTIVE_FILE:
+			printf(" 1 \"%s\" \"%s\"", B.directory, B.input_file);
+			break ;
+		case DIRECTIVE_LOC:
+			printf(" 1 %d %d %s", yylineno, b_col, opt.str);
+			break ;
+		case DIRECTIVE_TYPE:
+			printf(" %s, @function", opt.str);
+			break ;
+		case DIRECTIVE_CFI_SP:
+		case DIRECTIVE_CFI_EP:
+			break ;
+		case DIRECTIVE_SIZE:
+#endif
+		default:
+			printf(" %s", opt.str);
+	}
+	printf("\n");
 }
 
 void

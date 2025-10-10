@@ -43,6 +43,9 @@ PARSER_SRC	:=	$(SRC_DIR)/$(PARSER_NAME).y
 PARSER_OUT	:=	$(OBJ_DIR)/$(PARSER_NAME)
 PARSER		:=	$(PARSER_OUT).c
 
+LIBBDIR		:=	libb
+LIBB		:=	libb.a
+
 CFLAGS		:=	-Wall -Wextra -Wno-return-type -Wno-unused-parameter -Wno-override-init -Wno-array-bounds
 
 ifeq ($(VERBOSE), 1)
@@ -76,7 +79,14 @@ $(LEXER):	$(LEXER_SRC)
 	@echo " ■  building	lexer"
 	@flex --outfile=$(LEXER) $< 
 
+libb:		$(LIBB)
+
+$(LIBB):	$(NAME)
+	@echo " ■  compiling	$@"
+	@$(MAKE) --no-print-directory -C $(LIBBDIR)
+
 clean:
+	@$(MAKE) --no-print-directory -C $(LIBBDIR) clean
 	@if [ -d $(OBJ_DIR) ]; then \
 		echo " ■  deleted	$(OBJ_DIR)"; \
 		$(RM) $(OBJ_DIR); \
@@ -84,15 +94,8 @@ clean:
 
 fclean:			clean
 	@$(RM) $(NAME)
-	@if [ -f "$(PARSER)" ]; then \
-		echo " ■  deleted	parser"; \
-		$(RM) $(PARSER); \
-		$(RM) $(PARSER_OUT).h; \
-	fi;
-	@if [ -f "$(LEXER)" ]; then \
-		echo " ■  deleted	lexer"; \
-		$(RM) $(LEXER); \
-	fi;
+	@echo " ■  deleted	$(NAME)"
+	@$(MAKE) --no-print-directory -C $(LIBBDIR) fclean
 
 re:					fclean all
 

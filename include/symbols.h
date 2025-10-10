@@ -65,6 +65,9 @@ B_symbol_is_variable(Symbol *sym, VarType variable)
 Symbol
 *B_symbol_find(StringC name);
 
+bool
+B_is_symbol(Symbol *sym);
+
 void
 B_symbol_dump(Symbol *symbol);
 

@@ -1,6 +1,6 @@
 chown(filename, owner)
 {
-	extrn syscall;
+	extrn	syscall;
 
 	return (syscall(0x5c, filename, owner, owner));
 }

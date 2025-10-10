@@ -2,11 +2,13 @@
 * codegen.c
 */
 
+#include "bdebug.h"
 #include "codegen/emission.h"
 #include "codegen/regalloc.h"
 #include "eval/expression.h"
 #include "xlib.h"
 #include <b.h>
+#include <stdbool.h>
 
 void
 CG_program_header(void)
@@ -44,31 +46,38 @@ CG_rodata_section(void)
 
 	CG_switch_section(SECTION_RODATA);
 
-	todo("dump all rostrings to form .rodata section");
+	arr_foreach(ROString, rostr, B.rostrings)
+	{
+		CG_label(rostr->name, true);
+		ASM_dir_string(rostr->content);
+	}
+	arr_count(B.rostrings) = 0;
 }
 
 void
-CG_data_scalar_list(void)
+CG_data_scalar_list(StringC name)
 {
 	B_DBG_TREE;
 
 	CG_switch_section(SECTION_DATA);
+	CG_label(name, false);
 
 	ASM_dir_long(NULL, &B.ivals);
 	arr_count(B.ivals) = 0;
 }
 
 void
-CG_data_vector(Size size)
+CG_data_vector(StringC name, Size size)
 {
 	B_DBG_TREE;
 
 	CG_switch_section(SECTION_DATA);
+	CG_label(name, false);
 
 	if (arr_count(B.ivals) < size)
 	{
 		arr_realloc(B.ivals, size);
-		memset(arr_last(B.ivals) + 1, 0, sizeof(IVal) * (size - arr_count(B.ivals)));
+		memset(arr_last(B.ivals) + 1, 0, sizeof(Expression) * (size - arr_count(B.ivals)));
 		arr_count(B.ivals) = size;
 	}
 	ASM_dir_long(NULL, &B.ivals);
@@ -87,10 +96,10 @@ CG_data_section(void)
 
 	arr_foreach(Symbol, internal, B.internals)
 	{
-		arr_append(B.ivals, (IVal){0});
+		arr_append(B.ivals, EXPR_INVALID);
 
 		CG_label(internal->name, false);
-		CG_data_scalar_list();
+		CG_data_scalar_list(internal->name);
 	}
 	arr_count(B.internals) = 0;
 }
@@ -114,7 +123,7 @@ CG_function(StringC name)
 	CG_switch_section(SECTION_TEXT);
 
 	ASM_dir_global(name);
-	ASM_dir_palign(4);
+	ASM_dir_palign(2);
 
 #if defined(B_DEBUG)
 	ASM_dir_type(name);
@@ -170,6 +179,61 @@ CG_stack_release(Size size)
 	ASM_add(esp, IMM_OPERAND(size));
 }
 
+typedef void	(*FN_asm_setcc)(x86Operand);
+
+void
+CG_comparison(Expression e)
+{
+	B_DBG_TREE;
+
+	BOpType	type = (BOpType)(long)EA_get_data(e);
+
+	static const FN_asm_setcc	setcc_functions[BOP_XENUM_LAST] = 
+	{
+		[BOP_EQ  ] = ASM_setne,
+		[BOP_NE  ] = ASM_sete,
+		[BOP_LT  ] = ASM_setge,
+		[BOP_LE  ] = ASM_setg,
+		[BOP_GT  ] = ASM_setle,
+		[BOP_GE  ] = ASM_setl,
+	};
+	switch (type)
+	{
+		case BOP_EQ:
+		case BOP_NE:
+		case BOP_GT:
+		case BOP_GE:
+		case BOP_LT:
+		case BOP_LE:
+			break ;
+		default:
+			unreachable("invalid BOpType for 'setcc'.");
+	}
+
+	x86Register	reg = RP_register_alloc(REG_CLASS_ANY);
+	x86Operand	word = REG_OPERAND(reg);
+	x86Operand	byte = REG_OPERAND(X86_REG_MAKE(X86_REG_BASE(reg), X86_SIZE_BYTE));
+
+	setcc_functions[type](byte);
+	ASM_movzx(word, byte);
+
+	EA_expr_update(e, word, EXPR_STATUS_RESERVED);
+}
+
+static void
+CG_operand_constraints(x86Operand *dst, x86Operand *src)
+{
+	B_DBG_TREE;
+
+	if (dst->type == OPERAND_MEMORY && (src->type == OPERAND_MEMORY || src->type == OPERAND_SYMBOL))
+	{
+		x86Operand	scratch = REG_OPERAND(RP_register_alloc(REG_CLASS_ANY));
+
+		ASM_mov(scratch, *src);
+		*src = scratch;
+	}
+}
+
 x86Operand
 CG_expr_lvalue(Expression e)
 {
@@ -209,6 +273,35 @@ CG_expr_rvalue(Expression e)
 
 	ExprAlloc	*ex = arr_nth(EA, e);
 
+	if (ex->status == EXPR_STATUS_COMPARE)
+	{
+		ex->status = EXPR_STATUS_RESERVED;
+
+		CG_expr_condition(e);
+		CG_comparison(e);
+
+		return (ex->op);
+	}
+	
+	Symbol		*sym = (Symbol *)EA_get_data(e);
+
+	if (B_is_symbol(sym) && B_symbol_is_variable(sym, VARIABLE_VECTOR))
+	{
+		x86Operand	reg = REG_OPERAND(RP_register_alloc(REG_CLASS_ANY));
+
+		switch (ex->op.type)
+		{
+			case OPERAND_MEMORY:
+			case OPERAND_SYMBOL:
+				ASM_lea(reg, ex->op);
+				break ;
+			default:
+				unreachable("%s: invalid OperandType for VECTOR.", __func__);
+		}
+		EA_expr_update(e, reg, EXPR_STATUS_RESERVED);
+		return (reg);
+	}
+
 	switch (ex->op.type)
 	{
 		case OPERAND_IMMEDIATE:
@@ -217,22 +310,43 @@ CG_expr_rvalue(Expression e)
 		case OPERAND_SYMBOL:
 			return ex->op;
 		default:
-			unreachable("%s: invalid OperandType", __func__);
+			break ;
 	}
-	return (x86Operand){0};
+	unreachable("%s: invalid OperandType", __func__);
 }
 
-static void
-CG_operand_constraints(x86Operand *dst, x86Operand *src)
+void
+CG_expr_condition(Expression e)
 {
 	B_DBG_TREE;
 
-	if (dst->type == OPERAND_MEMORY && (src->type == OPERAND_MEMORY || src->type == OPERAND_SYMBOL))
-	{
-		x86Operand	scratch = REG_OPERAND(RP_register_alloc(REG_CLASS_ANY));
+	ExprAlloc	*alloc = arr_nth(EA, e);
+	alloc->status = EXPR_STATUS_RESERVED;
 
-		ASM_mov(scratch, *src);
-		*src = scratch;
+	x86Operand	op_e = CG_expr_rvalue(e);
+
+	Expression	b = (Expression)(long)EA_get_data(e);
+
+	if (b > 0)
+	{
+		x86Operand	op_b = CG_expr_rvalue(b);
+
+		CG_operand_constraints(&op_e, &op_b);
+		if (op_e.type == OPERAND_MEMORY)
+			op_e.mem.size = X86_SIZE_DWORD;
+
+		ASM_cmp(op_e, op_b);
+
+		if (op_e.type == OPERAND_REGISTER)
+			RP_register_free(op_e.reg);
+		if (op_b.type == OPERAND_REGISTER)
+			RP_register_free(op_b.reg);
+		alloc->data = EA_get_data(b);
+	}
+	else
+	{
+		CG_test(e);
+		alloc->data = (void *)BOP_NE;	
 	}
 }
 
@@ -274,6 +388,37 @@ CG_move(Expression dst, Expression src)
 	arr_delete(EA, src);
 }
 
+void
+CG_ternary(Expression pred, Expression yes, Expression no)
+{
+	B_DBG_TREE;
+
+	x86Operand	op_yes = CG_expr_rvalue(yes);
+	x86Operand	op_no = CG_expr_rvalue(no);
+
+	if (op_yes.type != OPERAND_REGISTER)
+	{
+		x86Operand	reg_yes = REG_OPERAND(RP_register_alloc(REG_CLASS_ANY));
+
+		ASM_mov(reg_yes, op_yes);
+		op_yes = reg_yes;
+	}
+	if (op_no.type != OPERAND_REGISTER)
+	{
+		x86Operand	reg_no = REG_OPERAND(RP_register_alloc(REG_CLASS_ANY));
+
+		ASM_mov(reg_no, op_no);
+		op_no = reg_no;
+	}
+	CG_test(pred);
+	ASM_cmove(op_yes, op_no);
+
+	RP_register_free(op_yes.reg);
+	RP_register_free(op_no.reg);
+
+	EA_expr_update(pred, op_yes, EXPR_STATUS_RESERVED);
+}
+
 typedef void	(*FN_asm_binop)(x86Operand, x86Operand);
 
 void
@@ -313,26 +458,6 @@ CG_binop(BOpType op, Expression a, Expression b)
 }
 
 void
-CG_compare(Expression a, Expression b)
-{
-	B_DBG_TREE;
-
-	x86Operand	op_a = CG_expr_rvalue(a);
-	x86Operand	op_b = CG_expr_rvalue(b);
-
-	CG_operand_constraints(&op_a, &op_b);
-	if (op_a.type == OPERAND_MEMORY)
-		op_a.mem.size = X86_SIZE_DWORD;
-
-	ASM_cmp(op_a, op_b);
-
-	if (op_a.type == OPERAND_REGISTER)
-		RP_register_free(op_a.reg);
-	if (op_b.type == OPERAND_REGISTER)
-		RP_register_free(op_b.reg);
-}
-
-void
 CG_test(Expression e)
 {
 	B_DBG_TREE;
@@ -360,7 +485,7 @@ CG_jump_label(StringC lbl, BOpType cond)
 {
 	B_DBG_TREE;
 
-	FN_asm_jump	jump_functions[BOP_XENUM_LAST] = 
+	static const FN_asm_jump	jump_functions[BOP_XENUM_LAST] = 
 	{
 		[BOP_NONE] = ASM_jmp,
 		[BOP_EQ  ] = ASM_jne,
@@ -381,7 +506,7 @@ CG_jump_label(StringC lbl, BOpType cond)
 		case BOP_LE:
 			break ;
 		default:
-			todo("more conditions ! (%s)", x_tostr_BOpType(cond));
+			unreachable("invalid BOpType for 'jcc'");
 	}
 	x86Operand	jump = SYM_OPERAND(lbl, .internal = true);
 
@@ -392,7 +517,7 @@ void
 CG_jump_compare(StringC lbl, Expression e)
 {
 	B_DBG_TREE;
-
+	
 	BOpType	t = (BOpType)(long)EA_get_data(e);
 
 	switch (t)
@@ -410,6 +535,67 @@ CG_jump_compare(StringC lbl, Expression e)
 			todo("handle more conditions in %s | (%s)", __func__,  x_tostr_BOpType(t));
 	}
 	CG_jump_label(lbl, t);
+}
+
+void
+CG_subscript(Expression arr, Expression idx)
+{
+	B_DBG_TREE;
+
+	x86Operand	op_arr = CG_expr_lvalue(arr);
+	x86Operand	op_idx = CG_expr_rvalue(idx);
+	x86Memory	sub = {0};
+
+	switch (op_arr.type)
+	{
+		case OPERAND_MEMORY:
+		{
+			x86Register	reg = RP_register_alloc(REG_CLASS_NOT_A);
+
+			ASM_lea(REG_OPERAND(reg), op_arr);
+			EA_expr_update(arr, REG_OPERAND(reg), EXPR_STATUS_RESERVED);
+			sub = X86_MEM(.base = reg);
+			break ;
+		}
+		case OPERAND_SYMBOL:
+		{
+			x86Register	reg = RP_register_alloc(REG_CLASS_ANY);
+
+			ASM_mov(REG_OPERAND(reg), op_arr);
+			op_arr = REG_OPERAND(reg);
+		}
+		__attribute__((fallthrough));
+		case OPERAND_REGISTER:
+			sub = X86_MEM(.base = op_arr.reg);
+			break ;
+		default:
+			unreachable("invalid OperandType for '[]' operator.");
+	}
+	switch (op_idx.type)
+	{
+		case OPERAND_IMMEDIATE:
+			sub.displacement += WORD_SIZE * op_idx.imm;
+			break ;
+		case OPERAND_MEMORY:
+		{
+			x86Register	reg = RP_register_alloc(REG_CLASS_ANY);
+
+			ASM_mov(REG_OPERAND(reg), op_idx);
+			EA_expr_update(idx, REG_OPERAND(reg), EXPR_STATUS_RESERVED);
+			op_idx = REG_OPERAND(reg);
+		}
+		__attribute__((fallthrough));
+		case OPERAND_REGISTER:
+			sub.index = op_idx.reg;
+			sub.scale = X86_MEM_SCALE_DWORD;
+			break ;
+		default:
+			unreachable("invalid OperandType for '[]' operator.");
+	}
+	EA_expr_update(arr, MEM_OPERAND(sub), EXPR_STATUS_RESERVED);
+
+	if (op_idx.type == OPERAND_REGISTER)
+		RP_register_free(op_idx.reg);
 }
 
 void
@@ -485,6 +671,49 @@ CG_function_arg(Expression e)
 		EA_expr_update(e, reg, EXPR_STATUS_RESERVED);
 	}
 	arr_append(*args, e);
+}
+
+void
+CG_incr(Expression e)
+{
+	B_DBG_TREE;
+
+	x86Operand	op_e = CG_expr_lvalue(e);
+
+	ASM_add(op_e, IMM_OPERAND(1));
+}
+
+void
+CG_decr(Expression e)
+{
+	B_DBG_TREE;
+
+	x86Operand	op_e = CG_expr_lvalue(e);
+
+	ASM_sub(op_e, IMM_OPERAND(1));
+}
+
+void
+CG_addrof(Expression e)
+{
+	B_DBG_TREE;
+	
+	x86Operand	op_e = CG_expr_rvalue(e);
+
+	switch (op_e.type)
+	{
+		case OPERAND_MEMORY:
+		case OPERAND_SYMBOL:
+		{
+			x86Operand	reg = REG_OPERAND(RP_register_alloc(REG_CLASS_ACCUM));
+
+			ASM_lea(reg, op_e);
+			EA_expr_update(e, reg, EXPR_STATUS_RESERVED);
+			break ;
+		}
+		default:
+			unreachable("invalid x86Operand for '&' operator.");
+	}
 }
 
 void

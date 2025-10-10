@@ -22,10 +22,10 @@ CG_data_section(void);
 
 
 void
-CG_data_scalar_list(void);
+CG_data_scalar_list(StringC name);
 
 void
-CG_data_vector(Size size);
+CG_data_vector(StringC name, Size size);
 
 
 void
@@ -56,13 +56,19 @@ CG_stack_release(Size size);
 
 
 void
+CG_expr_condition(Expression e);
+
+void
 CG_move(Expression dst, Expression src);
+
+void
+CG_ternary(Expression pred, Expression yes, Expression no);
 
 void
 CG_binop(BOpType op, Expression a, Expression b);
 
 void
-CG_compare(Expression a, Expression b);
+CG_compare(Expression e);
 
 void
 CG_test(Expression e);
@@ -74,12 +80,22 @@ void
 CG_jump_compare(StringC lbl, Expression e);
 
 void
+CG_subscript(Expression arr, Expression idx);
+
+void
 CG_function_call(Expression e);
 
 void
 CG_function_arg(Expression e);
 
+void
+CG_incr(Expression e);
 
+void
+CG_decr(Expression e);
+
+void
+CG_addrof(Expression e);
 
 void
 CG_char(Expression s, Expression i);

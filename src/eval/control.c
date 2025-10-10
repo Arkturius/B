@@ -2,7 +2,6 @@
 * control.c
 */
 
-#include "eval/control.h"
 #include "codegen/regalloc.h"
 #include <assert.h>
 #include <string.h>
@@ -255,8 +254,7 @@ B_control_while_test(Expression e)
 
 	StringC	end = B_label_last(LABEL_LOOP_STOP);
 
-	if (EA_get_data(e) == BOP_NONE)
-		CG_test(e);
+	CG_expr_condition(e);
 	CG_jump_compare(end, e);
 }
 
@@ -281,8 +279,7 @@ B_control_if_start(Expression e)
 	
 	StringC	skip = B_label_last(LABEL_SKIP_IF);
 
-	if (EA_get_data(e) == BOP_NONE)
-		CG_test(e);
+	CG_expr_condition(e);
 	CG_jump_compare(skip, e);
 }
 
