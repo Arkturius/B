@@ -266,12 +266,10 @@ CG_expr_rvalue(Expression e)
 	B_DBG_TREE;
 
 	if (e >= arr_count(EA))
-	{
-		todo("handle this.");
 		B_compiler_error("out of bounds Expression.");
-	}
 
 	ExprAlloc	*ex = arr_nth(EA, e);
+	Symbol		*sym = (Symbol *)EA_get_data(e);
 
 	if (ex->status == EXPR_STATUS_COMPARE)
 	{
@@ -279,13 +277,8 @@ CG_expr_rvalue(Expression e)
 
 		CG_expr_condition(e);
 		CG_comparison(e);
-
-		return (ex->op);
 	}
-	
-	Symbol		*sym = (Symbol *)EA_get_data(e);
-
-	if (B_is_symbol(sym) && B_symbol_is_variable(sym, VARIABLE_VECTOR))
+	else if (B_is_symbol(sym) && B_symbol_is_variable(sym, VARIABLE_VECTOR))
 	{
 		x86Operand	reg = REG_OPERAND(RP_register_alloc(REG_CLASS_ANY));
 
@@ -299,20 +292,8 @@ CG_expr_rvalue(Expression e)
 				unreachable("%s: invalid OperandType for VECTOR.", __func__);
 		}
 		EA_expr_update(e, reg, EXPR_STATUS_RESERVED);
-		return (reg);
 	}
-
-	switch (ex->op.type)
-	{
-		case OPERAND_IMMEDIATE:
-		case OPERAND_REGISTER:
-		case OPERAND_MEMORY:
-		case OPERAND_SYMBOL:
-			return ex->op;
-		default:
-			break ;
-	}
-	unreachable("%s: invalid OperandType", __func__);
+	return (ex->op);
 }
 
 void
