@@ -287,6 +287,23 @@ CG_expr_lvalue(Expression e)
 	}
 }
 
+BOpType
+TEST_SWITCH_COMPARE(BOpType type)
+{
+	switch (type)
+	{
+		case BOP_NONE: return BOP_NE;
+		case BOP_EQ: return BOP_NE;
+		case BOP_NE: return BOP_EQ;
+		case BOP_LT: return BOP_GE;
+		case BOP_GT: return BOP_LE;
+		case BOP_LE: return BOP_GT;
+		case BOP_GE: return BOP_LT;
+		default:
+			unreachable("invalid BOpType for switching comparison.");
+	}
+}
+
 x86Operand
 CG_expr_rvalue(Expression e)
 {
@@ -301,8 +318,9 @@ CG_expr_rvalue(Expression e)
 	if (ex->status == EXPR_STATUS_COMPARE)
 	{
 		ex->status = EXPR_STATUS_RESERVED;
-
 		CG_expr_condition(e);
+
+		ex->data = (void *)TEST_SWITCH_COMPARE((BOpType)(long)ex->data);
 		CG_comparison(e);
 	}
 	else if (B_is_symbol(sym) && B_symbol_is_variable(sym, VARIABLE_VECTOR))
@@ -323,30 +341,12 @@ CG_expr_rvalue(Expression e)
 	return (ex->op);
 }
 
-BOpType
-TEST_SWITCH_COMPARE(BOpType type)
-{
-	switch (type)
-	{
-		case BOP_EQ: return BOP_NE;
-		case BOP_NE: return BOP_EQ;
-		case BOP_LT: return BOP_GE;
-		case BOP_GT: return BOP_LE;
-		case BOP_LE: return BOP_GT;
-		case BOP_GE: return BOP_LT;
-		default:
-			unreachable("invalid BOpType for switching comparison.");
-	}
-}
-
 void
 CG_expr_condition(Expression e)
 {
 	B_DBG_TREE;
 
 	ExprAlloc	*alloc = arr_nth(EA, e);
-	alloc->status = EXPR_STATUS_RESERVED;
-
 	x86Operand	op_e = CG_expr_rvalue(e);
 
 	Expression	b = (Expression)(long)EA_get_data(e);
@@ -434,10 +434,10 @@ CG_ternary(Expression pred, Expression yes, Expression no)
 		ASM_mov(reg_no, op_no);
 		op_no = reg_no;
 	}
+
 	CG_test(pred);
 	ASM_cmove(op_yes, op_no);
 
-	RP_register_free(op_yes.reg);
 	RP_register_free(op_no.reg);
 
 	EA_expr_update(pred, op_yes, EXPR_STATUS_RESERVED);
@@ -454,12 +454,14 @@ CG_binop(BOpType op, Expression a, Expression b, bool in_place)
 	{
 		[BOP_PLUS ] = ASM_add,
 		[BOP_MINUS] = ASM_sub,
+		[BOP_AND  ] = ASM_and,
 	};
 	// get rid of switch case when all binop are implemented
 	switch (op)
 	{
 		case BOP_MINUS:
 		case BOP_PLUS:
+		case BOP_AND:
 			break ;
 		default:
 			todo("%s: implement func pointer for (%s)", __func__, x_tostr_BOpType(op));

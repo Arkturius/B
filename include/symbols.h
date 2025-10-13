@@ -50,17 +50,11 @@ B_symbol_add(Symbol *symbol);
 void
 B_symbol_internal_add(Symbol *symbol);
 
-inline bool
-B_symbol_is_storage(Symbol *sym, StorageType storage)
-{
-	return (sym->stype == storage);
-}
+bool
+B_symbol_is_storage(Symbol *sym, StorageType storage);
 
-inline bool
-B_symbol_is_variable(Symbol *sym, VarType variable)
-{
-	return (sym->vtype == variable);
-}
+bool
+B_symbol_is_variable(Symbol *sym, VarType variable);
 
 Symbol
 *B_symbol_find(StringC name);

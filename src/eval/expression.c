@@ -39,8 +39,16 @@ B_eval_constant_char(StringC str)
 {
 	B_DBG_TREE;
 
-	Expression	expr = arr_count(EA);
-	todo("evaluate constant chars.");
+	short	final = 0;
+	String	lit = strndup(str + 1, strlen(str) - 2);
+
+	switch (*lit)
+	{
+		case '\\':
+			lit++;
+	}
+
+	Expression	expr = EA_allocate_immediate(final);
 	return (expr);
 }
 

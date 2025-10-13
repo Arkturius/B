@@ -5,6 +5,18 @@
 #include <b.h>
 #include <string.h>
 
+bool
+B_symbol_is_storage(Symbol *sym, StorageType storage)
+{
+	return (sym->stype == storage);
+}
+
+bool
+B_symbol_is_variable(Symbol *sym, VarType variable)
+{
+	return (sym->vtype == variable);
+}
+
 void
 B_symbol_add(Symbol *symbol)
 {

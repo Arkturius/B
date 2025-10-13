@@ -18,8 +18,9 @@ fatal(msg)
 {
 	extrn	exit;
 
-	putstr("[ERROR]: ");
+	putstr("[B] ");
 	putstr(msg);
+	putstr("\n");
 	exit(1);
 }
 
@@ -34,31 +35,38 @@ shift(ac, av)
 	return (*old_av);
 }
 
-lexer_fd;
-lexer_input;
-
-lexer_open(filename)
+mmap(addr, size, prot, flags, fd, offset)
 {
-	extrn	open;
+	extrn	syscall;
 
-	return (open(filename, 1));
+	return (syscall(90));
+}
+
+puthex(x)
+{
+	while (x)
+	{
+		auto	hexit;
+
+		hexit = (x & 15);
+		hexit =+ hexit >= 10 ? 'a' : '0';
+		x =>> 4;
+		putstr(&hexit);
+	}
 }
 
 main(ac, av, env)
 {
-	auto	exe;
+	auto	exe, input;
+	extrn	lexer_init;
 
 	exe = shift(&ac, &av);
-	
 	if (!ac)
-		lexer_fd = 0;
-	else
-	{
-		lexer_input = shift(&ac, &av);
-		lexer_fd    = lexer_open(lexer_input);
-	}
-
-	if (lexer_fd < 0)
+		fatal("Usage: ./B \033[3mfile\033[0m");
+	
+	input = shift(&ac, &av);
+	if (lexer_init(input))
 		fatal("No such file or directory.");
+
 	return (0);
 }
