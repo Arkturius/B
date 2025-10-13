@@ -2,13 +2,10 @@
 * codegen.c
 */
 
-#include "bdebug.h"
-#include "codegen/emission.h"
-#include "codegen/regalloc.h"
-#include "eval/expression.h"
-#include "xlib.h"
-#include <b.h>
 #include <stdbool.h>
+
+#include <b.h>
+#include <codegen/emission.h>
 
 void
 CG_program_header(void)
@@ -159,6 +156,34 @@ CG_epilog(void)
 	ASM_ret();
 }
 
+#if defined(B_DEBUG)
+
+void
+CG_debug_prolog(void)
+{
+	B_DBG_TREE;
+
+	ASM_dir_file();
+	ASM_dir_loc("");
+	ASM_dir_cfi_sp();
+}
+
+void
+CG_debug_epilog(void)
+{
+	B_DBG_TREE;
+
+	StringC	func_end = *arr_last(B.labels.stacks[LABEL_FUNC_STOP]);
+	StringC	size_dir = B_asprintf("%s, %s - %s", B.function_name, func_end, B.function_name);
+
+	ASM_dir_size(size_dir);
+	ASM_dir_cfi_ep();
+
+	free((String) size_dir);
+}
+
+#endif // B_DEBUG
+
 void
 CG_stack_reserve(Size size)
 {
@@ -199,6 +224,8 @@ CG_comparison(Expression e)
 	};
 	switch (type)
 	{
+		case BOP_NONE:
+			type = BOP_NE;
 		case BOP_EQ:
 		case BOP_NE:
 		case BOP_GT:
@@ -315,6 +342,22 @@ CG_expr_rvalue(Expression e)
 	unreachable("%s: invalid OperandType", __func__);
 }
 
+BOpType
+TEST_SWITCH_COMPARE(BOpType type)
+{
+	switch (type)
+	{
+		case BOP_EQ: return BOP_NE;
+		case BOP_NE: return BOP_EQ;
+		case BOP_LT: return BOP_GE;
+		case BOP_GT: return BOP_LE;
+		case BOP_LE: return BOP_GT;
+		case BOP_GE: return BOP_LT;
+		default:
+			unreachable("invalid BOpType for switching comparison.");
+	}
+}
+
 void
 CG_expr_condition(Expression e)
 {
@@ -422,7 +465,7 @@ CG_ternary(Expression pred, Expression yes, Expression no)
 typedef void	(*FN_asm_binop)(x86Operand, x86Operand);
 
 void
-CG_binop(BOpType op, Expression a, Expression b)
+CG_binop(BOpType op, Expression a, Expression b, bool in_place)
 {
 	B_DBG_TREE;
 
@@ -438,20 +481,30 @@ CG_binop(BOpType op, Expression a, Expression b)
 		case BOP_PLUS:
 			break ;
 		default:
-			todo("%s", __func__);
+			todo("%s: implement func pointer for (%s)", __func__, x_tostr_BOpType(op));
 	}
-	x86Operand	acc  = REG_OPERAND(RP_register_alloc(REG_CLASS_ACCUM));
+
 	x86Operand	op_a = CG_expr_rvalue(a);
 	x86Operand	op_b = CG_expr_rvalue(b);
+	x86Operand	acc  = {0};
 
 	if (op_a.type == OPERAND_MEMORY)
 		op_a.mem.size = X86_SIZE_DWORD;
 
-	ASM_mov(acc, op_a);
+	in_place = in_place && (op_a.type == OPERAND_MEMORY || op_a.type == OPERAND_SYMBOL);
+	in_place = in_place && (op_b.type == OPERAND_IMMEDIATE || op_b.type == OPERAND_REGISTER);
+	
+	if (!in_place)
+	{
+		acc = REG_OPERAND(RP_register_alloc(REG_CLASS_ACCUM));
+		ASM_mov(acc, op_a);
+	}
+	else
+		acc = op_a;
 	binop_functions[op](acc, op_b);
 	EA_expr_update(a, acc, EXPR_STATUS_ALLOCATED);
 
-	if (op_a.type == OPERAND_REGISTER)
+	if (!in_place && op_a.type == OPERAND_REGISTER)
 		RP_register_free(op_a.reg);
 	if (op_b.type == OPERAND_REGISTER)
 		RP_register_free(op_b.reg);
@@ -542,19 +595,27 @@ CG_subscript(Expression arr, Expression idx)
 {
 	B_DBG_TREE;
 
-	x86Operand	op_arr = CG_expr_lvalue(arr);
+	x86Operand	op_arr = CG_expr_rvalue(arr);
 	x86Operand	op_idx = CG_expr_rvalue(idx);
-	x86Memory	sub = {0};
+	x86Memory	sub = { .scale = X86_MEM_SCALE_DWORD, .size = X86_SIZE_ARCH };
 
 	switch (op_arr.type)
 	{
 		case OPERAND_MEMORY:
 		{
-			x86Register	reg = RP_register_alloc(REG_CLASS_NOT_A);
-
-			ASM_lea(REG_OPERAND(reg), op_arr);
-			EA_expr_update(arr, REG_OPERAND(reg), EXPR_STATUS_RESERVED);
-			sub = X86_MEM(.base = reg);
+			if (op_arr.type == OPERAND_MEMORY && op_arr.mem.base == X86_REG_EBP)
+				sub = op_arr.mem;
+			else 
+			{
+				if (op_arr.type == OPERAND_MEMORY)
+				{
+					x86Register	reg = RP_register_alloc(REG_CLASS_NOT_A);
+					
+					ASM_lea(REG_OPERAND(reg), op_arr);
+					EA_expr_update(arr, REG_OPERAND(reg), EXPR_STATUS_RESERVED);
+					sub = X86_MEM(.base = reg);
+				}
+			}
 			break ;
 		}
 		case OPERAND_SYMBOL:
@@ -567,6 +628,9 @@ CG_subscript(Expression arr, Expression idx)
 		__attribute__((fallthrough));
 		case OPERAND_REGISTER:
 			sub = X86_MEM(.base = op_arr.reg);
+		__attribute__((fallthrough));
+		case OPERAND_IMMEDIATE:
+			sub.displacement = op_arr.imm;
 			break ;
 		default:
 			unreachable("invalid OperandType for '[]' operator.");
@@ -587,15 +651,92 @@ CG_subscript(Expression arr, Expression idx)
 		__attribute__((fallthrough));
 		case OPERAND_REGISTER:
 			sub.index = op_idx.reg;
-			sub.scale = X86_MEM_SCALE_DWORD;
 			break ;
 		default:
 			unreachable("invalid OperandType for '[]' operator.");
 	}
+
 	EA_expr_update(arr, MEM_OPERAND(sub), EXPR_STATUS_RESERVED);
 
 	if (op_idx.type == OPERAND_REGISTER)
 		RP_register_free(op_idx.reg);
+}
+
+void
+CG_deref(Expression e)
+{
+	B_DBG_TREE;
+
+	x86Operand	op_e = CG_expr_rvalue(e);
+	x86Operand	reg = {0};
+	x86Operand	deref = {0};
+
+	switch (op_e.type)
+	{
+		case OPERAND_MEMORY:
+		{
+			reg   = REG_OPERAND(RP_register_alloc(REG_CLASS_ANY));
+			deref = op_e;
+			break ;
+		}
+		case OPERAND_REGISTER:
+		{
+			reg   = REG_OPERAND(op_e.reg);
+			deref = MEM_OPERAND(X86_MEM(.base = op_e.reg));
+			break ;
+		}
+		case OPERAND_SYMBOL:
+		{
+			reg   = REG_OPERAND(RP_register_alloc(REG_CLASS_ANY));
+			deref = SYM_OPERAND(op_e.sym);
+			break ;
+		}
+		default:
+			unreachable("invalid operand type for deref");
+	}
+	ASM_mov(reg, deref);
+	reg = MEM_OPERAND(X86_MEM(.base = reg.reg));
+	EA_expr_update(e, reg, EXPR_STATUS_RESERVED);
+}
+
+void
+CG_invert(Expression e)
+{
+	x86Operand	op_e = CG_expr_rvalue(e);
+
+	switch (op_e.type)
+	{
+		case OPERAND_IMMEDIATE:
+		{
+			EA_expr_update(e, IMM_OPERAND(!op_e.imm), EXPR_STATUS_RESERVED);
+			return ;
+		}
+		case OPERAND_MEMORY:
+		case OPERAND_REGISTER:
+			break ;
+		default:
+			unreachable("implement invert for operand (%s)", x_tostr_x86OperandType(op_e.type));
+	}
+	CG_test(e);
+	CG_comparison(e);
+}
+
+void
+CG_negate(Expression e)
+{
+	x86Operand	op_e = CG_expr_rvalue(e);
+
+	switch (op_e.type)
+	{
+		case OPERAND_IMMEDIATE:
+		{
+			EA_expr_update(e, IMM_OPERAND(!op_e.imm), EXPR_STATUS_RESERVED);
+			return ;
+		}
+		default:
+			unreachable("implement negation for operand (%s)", x_tostr_x86OperandType(op_e.type));
+	}
+	ASM_neg(op_e);
 }
 
 void
@@ -652,10 +793,6 @@ CG_function_arg(Expression e)
 {
 	B_DBG_TREE;
 
-	// TODO: push expressions inside of B.arguments 
-	//   BUT: clean expressions -> just append (evaluation when called)
-	//        dirty expressions -> compute in a register, append, generate mov [SLOT], REG when needed.
-
 	if (e >= arr_count(EA))
 		B_compiler_error("invalid Expression.");
 
@@ -667,7 +804,6 @@ CG_function_arg(Expression e)
 		x86Operand	reg = REG_OPERAND(RP_register_alloc(REG_CLASS_NOT_A));
 
 		ASM_mov(reg, alloc->op);
-
 		EA_expr_update(e, reg, EXPR_STATUS_RESERVED);
 	}
 	arr_append(*args, e);
@@ -694,6 +830,32 @@ CG_decr(Expression e)
 }
 
 void
+CG_post_incr(Expression e)
+{
+	B_DBG_TREE;
+
+	x86Operand	op_e = CG_expr_lvalue(e);
+	x86Operand	reg = REG_OPERAND(RP_register_alloc(REG_CLASS_ANY));
+
+	ASM_mov(reg, op_e);
+	CG_incr(e);
+	EA_expr_update(e, reg, EXPR_STATUS_RESERVED);
+}
+
+void
+CG_post_decr(Expression e)
+{
+	B_DBG_TREE;
+
+	x86Operand	op_e = CG_expr_lvalue(e);
+	x86Operand	reg = REG_OPERAND(RP_register_alloc(REG_CLASS_ANY));
+
+	ASM_mov(reg, op_e);
+	CG_decr(e);
+	EA_expr_update(e, reg, EXPR_STATUS_RESERVED);
+}
+
+void
 CG_addrof(Expression e)
 {
 	B_DBG_TREE;
@@ -703,6 +865,19 @@ CG_addrof(Expression e)
 	switch (op_e.type)
 	{
 		case OPERAND_MEMORY:
+		{
+			if (op_e.mem.base == X86_REG_NUL)
+			{
+				if (op_e.mem.index == X86_REG_NUL)
+				{
+					x86Operand	imm = IMM_OPERAND(op_e.mem.displacement);
+
+					EA_expr_update(e, imm, EXPR_STATUS_RESERVED);
+					break ;
+				}
+			}
+		}
+		__attribute__((fallthrough));
 		case OPERAND_SYMBOL:
 		{
 			x86Operand	reg = REG_OPERAND(RP_register_alloc(REG_CLASS_ACCUM));

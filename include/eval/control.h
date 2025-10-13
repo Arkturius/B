@@ -25,6 +25,8 @@ x_enum
 		(LOOP_STOP   ),
 		(SKIP_IF     ),
 		(SKIP_ELSE   ),
+		(SWITCH_SKIP ),
+		(SWITCH_STOP ),
 	)
 )
 
@@ -33,6 +35,7 @@ x_array(StringC, LabelStack);
 typedef struct	b_label_frame
 {
 	LabelStack	stacks[LABEL_XENUM_LAST];
+	LabelStack	context;
 	LabelID		next;
 }	LabelFrame;
 

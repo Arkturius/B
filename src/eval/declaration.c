@@ -32,9 +32,8 @@ B_auto_vector(StringC name, Size size)
 		.stype = STORAGE_AUTO,
 		.vtype = VARIABLE_VECTOR,
 		.size  = size,
-		.off   = -(B.auto_size + 1),
+		.off   = -(B.auto_size + size),
 	};
-	log("registered a vector: size = %d, symbol->off = %d", size, vector.off);
 	B_symbol_add(&vector);
 	B.auto_size += size;
 }

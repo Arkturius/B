@@ -2,7 +2,6 @@
 * regalloc.c
 */
 
-#include "eval/expression.h"
 #include <b.h>
 #include <codegen/regalloc.h>
 

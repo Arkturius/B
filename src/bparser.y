@@ -373,7 +373,9 @@ expr_postfix
 	: expr_primary
 	| expr_builtin_val
 	| expr_postfix INCR
+		{ $$ = B_compute_postfix(UOP_INCR, $1); }
 	| expr_postfix DECR
+		{ $$ = B_compute_postfix(UOP_DECR, $1); }
 	| expr_postfix LBRACKET expr RBRACKET
 		{ $$ = B_eval_subscript($1, $3); }
 	| expr_postfix call_start LPAREN argument_list RPAREN

@@ -68,6 +68,9 @@ B_label_push(LabelType type)
 	StringC	name = B_label_name(type);
 
 	arr_append(B.labels.stacks[type], name);
+	if (type == LABEL_LOOP_STOP || type == LABEL_SWITCH_STOP)
+		arr_append(B.labels.context, name);
+
 	B.labels.next++;
 }
 
@@ -84,8 +87,11 @@ B_label_pop(LabelType type)
 
 	StringC	name = *arr_last(B.labels.stacks[type]);
 
-	free((void *)name);
 	arr_pop(B.labels.stacks[type], 1);
+	if (type == LABEL_LOOP_STOP || type == LABEL_SWITCH_STOP)
+		arr_pop(B.labels.context, 1);
+	
+	free((void *)name);
 }
 
 static StringC
@@ -154,40 +160,6 @@ B_control_program_stop(void)
 	assert(arr_count(B.scopes) == 1 && "program can't finish outside of main scope.");
 }
 
-static void
-CG_debug_prolog()
-{
-	B_DBG_TREE;
-
-	B_label(LABEL_FUNC_START);
-
-#if defined(B_DEBUG)
-	ASM_dir_file();
-	ASM_dir_loc("");
-	ASM_dir_cfi_sp();
-#endif // B_DEBUG
-
-}
-
-static void
-CG_debug_epilog()
-{
-	B_DBG_TREE;
-
-	B_label(LABEL_FUNC_STOP);
-
-#if defined(B_DEBUG)
-	StringC	func_end = *arr_last(B.labels.stacks[LABEL_FUNC_STOP]);
-	StringC	size_dir = B_asprintf("%s, %s - %s", B.function_name, func_end, B.function_name);
-
-	ASM_dir_size(size_dir);
-	ASM_dir_cfi_ep();
-
-	free((String) size_dir);
-#endif // B_DEBUG
-
-}
-
 void
 B_control_function_start(StringC name)
 {
@@ -199,7 +171,12 @@ B_control_function_start(StringC name)
 	
 	CG_function(name);
 
+	B_label(LABEL_FUNC_START);
+
+#if defined(B_DEBUG)
 	CG_debug_prolog();
+#endif // B_DEBUG
+
 	CG_prolog();
 
 	B_scope_enter();
@@ -212,9 +189,13 @@ B_control_function_stop(void)
 	B_DBG_TREE;
 
 	B_label(LABEL_FUNC_RET);
-
 	CG_epilog();
+	
+	B_label(LABEL_FUNC_STOP);
+
+#if defined(B_DEBUG)
 	CG_debug_epilog();
+#endif // B_DEBUG
 
 	CG_rodata_section();
 	CG_data_section();

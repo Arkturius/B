@@ -19,5 +19,8 @@ B_compute_binary_op(BOpType type, Expression a, Expression b);
 Expression
 B_compute_unary_op(UOpType type, Expression a);
 
+Expression
+B_compute_postfix(UOpType type, Expression a);
+
 #endif // _B_COMPUTING_H
 

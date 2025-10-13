@@ -45,7 +45,13 @@ void
 CG_prolog(void);
 
 void
+CG_debug_prolog(void);
+
+void
 CG_epilog(void);
+
+void
+CG_debug_epilog(void);
 
 
 void
@@ -65,7 +71,7 @@ void
 CG_ternary(Expression pred, Expression yes, Expression no);
 
 void
-CG_binop(BOpType op, Expression a, Expression b);
+CG_binop(BOpType op, Expression a, Expression b, bool in_place);
 
 void
 CG_compare(Expression e);
@@ -89,10 +95,25 @@ void
 CG_function_arg(Expression e);
 
 void
+CG_invert(Expression e);
+
+void
+CG_negate(Expression e);
+
+void
 CG_incr(Expression e);
 
 void
 CG_decr(Expression e);
+
+void
+CG_post_incr(Expression e);
+
+void
+CG_post_decr(Expression e);
+
+void
+CG_deref(Expression e);
 
 void
 CG_addrof(Expression e);

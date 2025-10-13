@@ -110,7 +110,7 @@ B_eval_assignment(BOpType type, Expression dst, Expression src)
 			CG_move(dst, src);
 			break ;
 		case BOP_PLUS:
-			CG_binop(type, dst, src);
+			CG_binop(type, dst, src, true);
 			break ;
 		default:
 			todo("implement %s case for %s", __func__, x_tostr_BOpType(type));

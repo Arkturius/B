@@ -15,40 +15,42 @@
 
 StringC	ASM_instruction_names[INSTRUCTION_XENUM_LAST] =
 {
-	[INSTRUCTION_MOV  ] = "mov",
-	[INSTRUCTION_MOVZX] = "movzx",
-	[INSTRUCTION_CMOVE] = "cmove",
-	[INSTRUCTION_LEA  ] = "lea",
-	[INSTRUCTION_ADD  ] = "add",
-	[INSTRUCTION_SUB  ] = "sub",
-	[INSTRUCTION_AND  ] = "and",
-	[INSTRUCTION_OR   ] = "or",
-	[INSTRUCTION_XOR  ] = "xor",
-	[INSTRUCTION_SHR  ] = "shr",
-	[INSTRUCTION_SHL  ] = "shl",
-	[INSTRUCTION_IDIV ] = "idiv",
-	[INSTRUCTION_IMUL ] = "imul",
-	[INSTRUCTION_NOT  ] = "not",
-	[INSTRUCTION_CMP  ] = "cmp",
-	[INSTRUCTION_TEST ] = "test",
-	[INSTRUCTION_PUSH ] = "push",
-	[INSTRUCTION_POP  ] = "pop",
-	[INSTRUCTION_JMP  ]	= "jmp",
-	[INSTRUCTION_JE   ] = "je",
-	[INSTRUCTION_JNE  ] = "jne",
-	[INSTRUCTION_JG   ] = "jg",
-	[INSTRUCTION_JL   ] = "jl",
-	[INSTRUCTION_JGE  ] = "jge",
-	[INSTRUCTION_JLE  ] = "jle",
-	[INSTRUCTION_SETE ] = "sete",
-	[INSTRUCTION_SETNE] = "setne",
-	[INSTRUCTION_SETG ] = "setg",
-	[INSTRUCTION_SETL ] = "setl",
-	[INSTRUCTION_SETGE] = "setge",
-	[INSTRUCTION_SETLE] = "setle",
-	[INSTRUCTION_CALL ] = "call",
-	[INSTRUCTION_RET  ] = "ret",
-	[INSTRUCTION_CDQ  ] = "cdq",
+	[INSTRUCTION_MOV   ] = "mov",
+	[INSTRUCTION_MOVZX ] = "movzx",
+	[INSTRUCTION_CMOVE ] = "cmove",
+	[INSTRUCTION_CMOVNE] = "cmovne",
+	[INSTRUCTION_LEA   ] = "lea",
+	[INSTRUCTION_ADD   ] = "add",
+	[INSTRUCTION_SUB   ] = "sub",
+	[INSTRUCTION_AND   ] = "and",
+	[INSTRUCTION_OR    ] = "or",
+	[INSTRUCTION_XOR   ] = "xor",
+	[INSTRUCTION_SHR   ] = "shr",
+	[INSTRUCTION_SHL   ] = "shl",
+	[INSTRUCTION_IDIV  ] = "idiv",
+	[INSTRUCTION_IMUL  ] = "imul",
+	[INSTRUCTION_NEG   ] = "neg",
+	[INSTRUCTION_NOT   ] = "not",
+	[INSTRUCTION_CMP   ] = "cmp",
+	[INSTRUCTION_TEST  ] = "test",
+	[INSTRUCTION_PUSH  ] = "push",
+	[INSTRUCTION_POP   ] = "pop",
+	[INSTRUCTION_JMP   ] = "jmp",
+	[INSTRUCTION_JE    ] = "je",
+	[INSTRUCTION_JNE   ] = "jne",
+	[INSTRUCTION_JG    ] = "jg",
+	[INSTRUCTION_JL    ] = "jl",
+	[INSTRUCTION_JGE   ] = "jge",
+	[INSTRUCTION_JLE   ] = "jle",
+	[INSTRUCTION_SETE  ] = "sete",
+	[INSTRUCTION_SETNE ] = "setne",
+	[INSTRUCTION_SETG  ] = "setg",
+	[INSTRUCTION_SETL  ] = "setl",
+	[INSTRUCTION_SETGE ] = "setge",
+	[INSTRUCTION_SETLE ] = "setle",
+	[INSTRUCTION_CALL  ] = "call",
+	[INSTRUCTION_RET   ] = "ret",
+	[INSTRUCTION_CDQ   ] = "cdq",
 };
 
 StringC	ASM_directive_names[DIRECTIVE_XENUM_LAST] =
@@ -74,10 +76,10 @@ StringC	ASM_directive_names[DIRECTIVE_XENUM_LAST] =
 
 StringC	ASM_section_names[SECTION_XENUM_LAST] =
 {
-	[SECTION_TEXT]   = ".text",
-	[SECTION_DATA]   = ".data",
+	[SECTION_TEXT  ] = ".text",
+	[SECTION_DATA  ] = ".data",
 	[SECTION_RODATA] = ".rodata",
-	[SECTION_BSS]    = ".bss",
+	[SECTION_BSS   ] = ".bss",
 };
 
 StringC	ASM_register_names[X86_BASE_XENUM_LAST][X86_SIZE_XENUM_LAST] = 
@@ -192,14 +194,18 @@ ASM_emit_operand_memory(x86Memory mem, bool destination)
 {
 	B_DBG_TREE;
 
+	int	before = 0;
+
 	ASM_emit_operand_memory_size(mem.size, destination);
 
 	printf("[");
-	ASM_emit_operand_register(mem.base);
+	if (ASM_is_reg(mem.base) && !before++)
+		ASM_emit_operand_register(mem.base);
 
 	if (ASM_is_reg(mem.index))
 	{
-		printf(" + ");
+		if (before && before++)
+			printf(" + ");
 		ASM_emit_operand_register(mem.index);
 
 		if (mem.scale && ASM_is_scale(mem.scale))
@@ -210,11 +216,18 @@ ASM_emit_operand_memory(x86Memory mem, bool destination)
 	}
 	if (mem.displacement)
 	{
-		printf(" %c ", mem.displacement > 0 ? '+' : '-');
 		if (mem.displacement > 0)
+		{
+			if (before && before++)
+				printf(" + ");
 			ASM_emit_operand_immediate(mem.displacement);
+		}
 		else
+		{
+			if (before && before++)
+				printf(" - ");
 			ASM_emit_operand_immediate(-mem.displacement);
+		}
 	}
 	printf("]");
 }
@@ -277,6 +290,12 @@ ASM_emit_long_list(void *data)
 
 	Expressions	*ivals = data;
 
+	if (arr_count(*ivals) == 0)
+	{
+		printf(" ");
+		ASM_emit_operand(IMM_OPERAND(0));
+		return ;
+	}
 	arr_foreach(Expression, ival, *ivals)
 	{
 		if (arr_index(*ivals, ival) > 0)
