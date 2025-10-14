@@ -347,7 +347,7 @@ CG_expr_condition(Expression e)
 	B_DBG_TREE;
 
 	ExprAlloc	*alloc = arr_nth(EA, e);
-	x86Operand	op_e = CG_expr_rvalue(e);
+	x86Operand	op_e = CG_expr_lvalue(e);
 
 	Expression	b = (Expression)(long)EA_get_data(e);
 
@@ -455,6 +455,8 @@ CG_binop(BOpType op, Expression a, Expression b, bool in_place)
 		[BOP_PLUS ] = ASM_add,
 		[BOP_MINUS] = ASM_sub,
 		[BOP_AND  ] = ASM_and,
+		[BOP_SHL  ] = ASM_shl,
+		[BOP_SHR  ] = ASM_shr,
 	};
 	// get rid of switch case when all binop are implemented
 	switch (op)
@@ -462,6 +464,8 @@ CG_binop(BOpType op, Expression a, Expression b, bool in_place)
 		case BOP_MINUS:
 		case BOP_PLUS:
 		case BOP_AND:
+		case BOP_SHR:
+		case BOP_SHL:
 			break ;
 		default:
 			todo("%s: implement func pointer for (%s)", __func__, x_tostr_BOpType(op));
@@ -586,18 +590,15 @@ CG_subscript(Expression arr, Expression idx)
 	{
 		case OPERAND_MEMORY:
 		{
-			if (op_arr.type == OPERAND_MEMORY && op_arr.mem.base == X86_REG_EBP)
+			if (op_arr.mem.base == X86_REG_EBP && op_arr.mem.displacement < 0)
 				sub = op_arr.mem;
 			else 
 			{
-				if (op_arr.type == OPERAND_MEMORY)
-				{
-					x86Register	reg = RP_register_alloc(REG_CLASS_NOT_A);
-					
-					ASM_lea(REG_OPERAND(reg), op_arr);
-					EA_expr_update(arr, REG_OPERAND(reg), EXPR_STATUS_RESERVED);
-					sub = X86_MEM(.base = reg);
-				}
+				x86Register	reg = RP_register_alloc(REG_CLASS_NOT_A);
+				
+				ASM_mov(REG_OPERAND(reg), op_arr);
+				EA_expr_update(arr, REG_OPERAND(reg), EXPR_STATUS_RESERVED);
+				sub = X86_MEM(.base = reg);
 			}
 			break ;
 		}
@@ -611,9 +612,9 @@ CG_subscript(Expression arr, Expression idx)
 		__attribute__((fallthrough));
 		case OPERAND_REGISTER:
 			sub = X86_MEM(.base = op_arr.reg);
-		__attribute__((fallthrough));
+			break ;
 		case OPERAND_IMMEDIATE:
-			sub.displacement = op_arr.imm;
+			sub.displacement = op_arr.imm * WORD_SIZE;
 			break ;
 		default:
 			unreachable("invalid OperandType for '[]' operator.");
@@ -634,6 +635,7 @@ CG_subscript(Expression arr, Expression idx)
 		__attribute__((fallthrough));
 		case OPERAND_REGISTER:
 			sub.index = op_idx.reg;
+			sub.scale = X86_MEM_SCALE_DWORD;
 			break ;
 		default:
 			unreachable("invalid OperandType for '[]' operator.");

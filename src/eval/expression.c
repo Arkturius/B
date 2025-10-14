@@ -34,18 +34,54 @@ B_eval_constant_string(StringC str)
 	return (expr);
 }
 
+static inline char
+B_eval_escaped_char(StringC str)
+{
+	char	c = 0;
+
+	switch (*str)
+	{
+		case '0':
+		case 'e':  c = 0;    break ;
+		case 't':  c = '\t'; break ;
+		case 'n':  c = '\n'; break ;
+		case '(':  c = '{';  break ;
+		case ')':  c = '}';  break ;
+		case '\\': c = '\\'; break ;
+		case '\'': c = '\''; break ;
+		case '"':  c = '"';  break ;
+		default:
+			B_compiler_error("invalid escape sequence.");
+			break ;
+	}
+	return (c);
+}
+
 static inline Expression
 B_eval_constant_char(StringC str)
 {
 	B_DBG_TREE;
 
 	short	final = 0;
+	char	c = 0;
 	String	lit = strndup(str + 1, strlen(str) - 2);
+	Size	len = strlen(lit);
 
-	switch (*lit)
+	while (len--)
 	{
-		case '\\':
-			lit++;
+		switch (*lit)
+		{
+			case '\\':
+				lit++;
+				len--;
+				c = B_eval_escaped_char(lit);
+				break ;
+			default:
+				c = *lit;
+				break ;
+		}
+		final = (final << 8) | c;
+		lit++;
 	}
 
 	Expression	expr = EA_allocate_immediate(final);
@@ -118,6 +154,9 @@ B_eval_assignment(BOpType type, Expression dst, Expression src)
 			CG_move(dst, src);
 			break ;
 		case BOP_PLUS:
+		case BOP_MINUS:
+		case BOP_AND:
+		case BOP_SHR:
 			CG_binop(type, dst, src, true);
 			break ;
 		default:

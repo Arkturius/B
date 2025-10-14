@@ -35,30 +35,53 @@ shift(ac, av)
 	return (*old_av);
 }
 
-mmap(addr, size, prot, flags, fd, offset)
+r_puthex(x)
 {
-	extrn	syscall;
+	auto	hexit, rest;
 
-	return (syscall(90));
+	rest = x >> 4;
+	hexit = (x & 15);
+	hexit =+ hexit >= 10 ? 'a' - 10 : '0';
+	if (rest)
+		r_puthex(rest);
+	putstr(&hexit);
 }
 
 puthex(x)
 {
-	while (x)
-	{
-		auto	hexit;
+	putstr("0x");
+	r_puthex(x);
+	putstr("\n");
+}
 
-		hexit = (x & 15);
-		hexit =+ hexit >= 10 ? 'a' : '0';
-		x =>> 4;
-		putstr(&hexit);
-	}
+lexer_fd;
+
+lexer_map_file(size)
+{
+	extrn	syscall;
+
+	return (syscall(192, 0x10000000, size, 0x03, 0x2, lexer_fd, 0));
+}
+
+lexer_open(filename)
+{
+	extrn	open;
+
+	return (open(filename, 1));
+}
+
+lexer_init(filename)
+{
+	extrn	open;
+
+	lexer_fd = open(filename, 0);
+	return (lexer_fd < 0);
 }
 
 main(ac, av, env)
 {
-	auto	exe, input;
-	extrn	lexer_init;
+	extrn	fstat;
+	auto	exe, input, v 20, file_ptr;
 
 	exe = shift(&ac, &av);
 	if (!ac)
@@ -67,6 +90,14 @@ main(ac, av, env)
 	input = shift(&ac, &av);
 	if (lexer_init(input))
 		fatal("No such file or directory.");
+
+	fstat(lexer_fd, v);
+
+	file_ptr = lexer_map_file(v[7]);
+
+	putstr("Mapped file:\n");
+	puthex(file_ptr);
+	puthex(&file_ptr);
 
 	return (0);
 }
