@@ -89,6 +89,7 @@
 %type<e>	argument_list
 %type<e>	argument
 %type<e>	constant
+%type<e>	case_constant
 
 %%
 
@@ -190,6 +191,7 @@ statement
 	| switch_statement
 	| label_statement
 	| BREAK SEMI
+		{ B_control_break(); }
 	| GOTO NAME SEMI
 	| RETURN LPAREN expr RPAREN
 		{ B_control_return($3); }
@@ -240,13 +242,27 @@ if_start
 	;
 
 switch_statement
-	: SWITCH LPAREN expr RPAREN statement
+	: SWITCH LPAREN expr RPAREN 
+		{ B_control_switch_start($3); }
+	  statement
+		{ B_control_switch_stop(); }
 	;
 
 label_statement
-	: CASE constant COLON statement
-	| DEFAULT COLON statement
+	: CASE case_constant COLON 
+		{ B_control_switch_case($2); }
+	  statement
+	| DEFAULT COLON
+		{ B_control_switch_case(0); }
+	  statement
 	| NAME COLON statement
+	;
+
+case_constant
+	: CONSTANT
+		{ $$ = B_eval_constant($1, NULL); }
+	| CHAR_CONSTANT
+		{ $$ = B_eval_constant(0, $1); }
 	;
 
 expr

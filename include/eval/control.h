@@ -9,6 +9,7 @@
 # include <xlib.h>
 
 # include <eval/expression.h>
+# include <codegen/regalloc.h>
 
 typedef u32	LabelID;
 
@@ -27,16 +28,27 @@ x_enum
 		(SKIP_ELSE   ),
 		(SWITCH_SKIP ),
 		(SWITCH_STOP ),
+		(CASE        ),
 	)
 )
 
 x_array(StringC, LabelStack);
 
+typedef struct	b_case
+{
+	StringC	label;
+	i32		value;
+}	Case;
+
+x_array(Case, Cases);
+
 typedef struct	b_label_frame
 {
-	LabelStack	stacks[LABEL_XENUM_LAST];
-	LabelStack	context;
-	LabelID		next;
+	LabelStack		stacks[LABEL_XENUM_LAST];
+	LabelStack		context;
+	Cases			cases;
+	ExprAllocator	switchs;
+	LabelID			next;
 }	LabelFrame;
 
 void

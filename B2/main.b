@@ -60,7 +60,7 @@ lexer_map_file(size)
 {
 	extrn	syscall;
 
-	return (syscall(192, 0x10000000, size, 0x03, 0x2, lexer_fd, 0));
+	return (syscall(192, 0, size, 0x03, 0x2, lexer_fd, 0));
 }
 
 lexer_open(filename)
