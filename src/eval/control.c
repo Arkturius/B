@@ -2,9 +2,6 @@
 * control.c
 */
 
-#include "eval/control.h"
-#include "codegen/codegen.h"
-#include "codegen/emission.h"
 #include <assert.h>
 #include <stdbool.h>
 #include <string.h>
@@ -31,6 +28,7 @@ B_label_name(LabelType type)
 		[LABEL_LOOP_STOP  ] = ".LBE%d_%d",
 		[LABEL_SWITCH_SKIP] = ".LSB%d_%d",
 		[LABEL_SWITCH_STOP] = ".LSE%d_%d",
+		[LABEL_CASE_LOOKUP] = ".LCT%d_%d",
 	};
 
 	switch (type)
@@ -50,6 +48,7 @@ B_label_name(LabelType type)
 		case LABEL_LOOP_STOP:
 		case LABEL_SWITCH_SKIP:
 		case LABEL_SWITCH_STOP:
+		case LABEL_CASE_LOOKUP:
 			idx = arr_count(B.labels.stacks[type]);
 			break ;
 
@@ -339,6 +338,11 @@ B_control_switch_start(Expression e)
 	ExprAlloc	*alloc = arr_nth(EA, e);
 
 	arr_append(B.labels.switchs, *alloc);
+	
+	Cases	cases = {0};
+	
+	arr_append(B.labels.cases, cases);
+	B.labels.cases_in = arr_last(B.labels.cases);
 }
 
 static int
@@ -358,9 +362,11 @@ B_control_switch_range(void)
 	i32	first = 0;
 	i32	last = 0;
 
-	qsort(arr_first(B.labels.cases), arr_count(B.labels.cases), sizeof(Case), B_casecmp);
-	arr_foreach(Case, _case, B.labels.cases)
+	qsort(arr_first(*B.labels.cases_in), arr_count(*B.labels.cases_in), sizeof(Case), B_casecmp);
+	arr_foreach(Case, _case, *B.labels.cases_in)
 	{
+		if (!_case->label)
+			continue ;
 		if (!first++)
 		{
 			last = _case->value;
@@ -377,7 +383,34 @@ static void
 B_control_switch_table(void)
 {
 	B_DBG_TREE;
-	todo("%s", __func__);
+
+	bool	first = false;
+	StringC	table_name = B_label_push(LABEL_CASE_LOOKUP);
+	
+	CaseTable	table = 
+	{
+		.start = 0,
+		.table_label = table_name,
+		.case_labels = {0},
+	};
+
+	Expression	se = arr_count(EA);
+	
+	arr_append(EA, *arr_last(B.labels.switchs));
+
+	arr_foreach(Case, _case, *B.labels.cases_in)
+	{
+		if (!first)
+		{
+			table.start = _case->value;
+			first = true;
+			CG_switch_lookup(se, table.start, table.table_label);
+		}
+		if (!_case->label)
+			break ;
+		arr_append(table.case_labels, _case->label);
+	}
+	arr_append(B.labels.tables, table);
 }
 
 static void
@@ -390,24 +423,25 @@ B_control_switch_linear(void)
 	arr_append(EA, *arr_last(B.labels.switchs));
 
 	ExprAlloc	*source = arr_last(EA);
-	Case		default_case;
+	Case		default_case = {0};
 
-	arr_foreach(Case, _case, B.labels.cases)
+	arr_foreach(Case, _case, *B.labels.cases_in)
 	{
-		if (_case->value == 0)
+		if (!_case->label)
 		{
-			default_case = *_case;
+			default_case = (Case)
+			{
+				.label = (StringC)_case->value,
+				.value = 0,
+			};
 			continue ;
 		}
-
 		Expression	imm = EA_allocate_immediate(_case->value);
 		
 		source->data = (void *)(long)imm;
-
 		CG_expr_condition(se);
 		CG_jump_compare(_case->label, se);
 	}
-
 	if (default_case.label)
 		CG_jump_label(default_case.label, BOP_NONE);
 }
@@ -422,15 +456,32 @@ B_control_switch_stop(void)
 		B_control_switch_table();
 	else
 		B_control_switch_linear();
-	arr_count(B.labels.cases) = 0;
+
+	arr_destroy(*B.labels.cases_in);
+	arr_pop(B.labels.switchs, 1);
+	arr_pop(B.labels.cases, 1);
+
+	B.labels.cases_in = arr_last(B.labels.cases);
 
 	B_label(LABEL_SWITCH_STOP);
 	B_label_pop(LABEL_SWITCH_SKIP);
 	B_label_pop(LABEL_SWITCH_STOP);
 }
 
+static void
+B_control_switch_case(StringC lbl, i64 value)
+{
+	Case	_case = 
+	{
+		.label = lbl,
+		.value = value,
+	};
+	arr_append(*B.labels.cases_in, _case);
+	B_label(LABEL_CASE);
+}
+
 void
-B_control_switch_case(Expression e)
+B_control_switch_case_const(Expression e)
 {
 	B_DBG_TREE;
 
@@ -441,13 +492,15 @@ B_control_switch_case(Expression e)
 	if (alloc->op.type != OPERAND_IMMEDIATE)
 		unreachable("nullos va");
 
-	Case	_case = 
-	{
-		.label = name,
-		.value = alloc->op.imm,
-	};
-
-	arr_append(B.labels.cases, _case);
-	B_label(LABEL_CASE);
+	B_control_switch_case(name, alloc->op.imm);
 }
 
+void
+B_control_switch_default(void)
+{
+	B_DBG_TREE;
+
+	StringC	name = B_label_push(LABEL_CASE);
+
+	B_control_switch_case(NULL, (i64)name);
+}

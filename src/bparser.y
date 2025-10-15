@@ -250,10 +250,10 @@ switch_statement
 
 label_statement
 	: CASE case_constant COLON 
-		{ B_control_switch_case($2); }
+		{ B_control_switch_case_const($2); }
 	  statement
 	| DEFAULT COLON
-		{ B_control_switch_case(0); }
+		{ B_control_switch_default(); }
 	  statement
 	| NAME COLON statement
 	;

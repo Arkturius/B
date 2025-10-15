@@ -38,7 +38,7 @@ CG_rodata_section(void)
 {
 	B_DBG_TREE;
 
-	if (arr_count(B.rostrings) == 0)
+	if (arr_count(B.rostrings) == 0 && arr_count(B.labels.tables) == 0)
 		return ;
 
 	CG_switch_section(SECTION_RODATA);
@@ -49,6 +49,14 @@ CG_rodata_section(void)
 		ASM_dir_string(rostr->content);
 	}
 	arr_count(B.rostrings) = 0;
+
+	arr_foreach(CaseTable, table, B.labels.tables)
+	{
+		ASM_label(table->table_label);
+		arr_foreach(StringC, label, table->case_labels)
+			ASM_dir_long(*label, false);
+	}
+	arr_count(B.labels.tables) = 0;
 }
 
 void
@@ -86,7 +94,7 @@ CG_data_section(void)
 {
 	B_DBG_TREE;
 
-	if (arr_count(B.internals) == 0)
+	if (!arr_count(B.internals) && !arr_count(B.labels.tables))
 		return ;
 
 	CG_switch_section(SECTION_DATA);
@@ -725,6 +733,35 @@ CG_negate(Expression e)
 }
 
 void
+CG_switch_lookup(Expression e, i32 start, StringC table_name)
+{
+	x86Operand	op_e = CG_expr_rvalue(e);
+	x86Operand	idx = REG_OPERAND(RP_register_alloc(REG_CLASS_NOT_A));
+	x86Operand	imm = IMM_OPERAND(-start);
+	x86Operand	def = SYM_OPERAND((StringC)arr_last(*B.labels.cases_in)->value);
+	x86Operand	table = REG_OPERAND(RP_register_alloc(REG_CLASS_ACCUM));
+
+	def.internal = true;
+
+	ASM_mov(idx, op_e);
+	ASM_add(idx, imm);
+	ASM_cmp(idx, IMM_OPERAND(arr_count(*B.labels.cases_in) - 2));
+	ASM_ja(def);
+	ASM_lea(table, SYM_OPERAND(table_name));
+
+	x86Operand	dispatch = MEM_OPERAND(X86_MEM
+	(
+		.base = table.reg,
+		.scale = X86_MEM_SCALE_DWORD,
+		.index = idx.reg,
+	));
+
+	ASM_mov(table, dispatch);
+	ASM_jmp(table);
+}
+
+
+void
 CG_function_call(Expression e)
 {
 	B_DBG_TREE;
@@ -736,6 +773,7 @@ CG_function_call(Expression e)
 	Offset		offset = (arr_count(arguments) - 1) * WORD_SIZE;
 
 	CG_stack_reserve(arr_count(arguments) * WORD_SIZE);
+
 	// TODO: push caller saved registers
 
 	arr_foreach_rev(Expression, expr, arguments)
@@ -762,6 +800,7 @@ CG_function_call(Expression e)
 		case OPERAND_REGISTER:
 		case OPERAND_IMMEDIATE:
 		case OPERAND_SYMBOL:
+		case OPERAND_MEMORY:
 			break ;
 		default:
 			B_compiler_error("invalid 'call' operand.");

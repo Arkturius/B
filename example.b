@@ -24,11 +24,23 @@ main(ac, av)
 		case 2:
 			putstr("2 !\n");
 			break ;
-		case 4:
-			putstr("4 !\n");
+		case 3:
+			{
+				putstr("3 !\n");
+				switch (char(av[1], 0))
+				{
+					case 'a':
+						putstr("AAA\n");
+					case 'b':
+						putstr("BBB\n");
+					default:
+						break ;
+				}
+			}
 			break ;
 		default:
 			putstr("OTHER\n");
 			break ;
 	}
+	return (0);
 }

@@ -29,6 +29,7 @@ x_enum
 		(SWITCH_SKIP ),
 		(SWITCH_STOP ),
 		(CASE        ),
+		(CASE_LOOKUP ),
 	)
 )
 
@@ -37,17 +38,31 @@ x_array(StringC, LabelStack);
 typedef struct	b_case
 {
 	StringC	label;
-	i32		value;
+	i64		value;
 }	Case;
 
 x_array(Case, Cases);
+x_array(Cases, CaseStack);
+
+typedef struct	b_table
+{
+	Offset		start;
+	StringC		table_label;
+	LabelStack	case_labels;
+}	CaseTable;
+
+x_array(CaseTable, CaseTables);
 
 typedef struct	b_label_frame
 {
 	LabelStack		stacks[LABEL_XENUM_LAST];
 	LabelStack		context;
-	Cases			cases;
+
+	CaseStack		cases;
+	Cases			*cases_in;
 	ExprAllocator	switchs;
+	CaseTables		tables;
+
 	LabelID			next;
 }	LabelFrame;
 

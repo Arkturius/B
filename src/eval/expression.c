@@ -12,7 +12,7 @@ B_constant_string_name(void)
 
 	static int	str_no = 0;
 
-	return (B_asprintf("ROS%d", str_no++));
+	return (B_asprintf(".ROS%d", str_no++));
 }
 
 static inline Expression

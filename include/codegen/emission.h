@@ -250,6 +250,7 @@ ASM_instruction_set
 	(1, JL    , jl    ),
 	(1, JGE   , jge   ),
 	(1, JLE   , jle   ),
+	(1, JA    , ja    ),
 	(1, SETE  , sete  ),
 	(1, SETNE , setne ),
 	(1, SETG  , setg  ),

@@ -42,6 +42,7 @@ StringC	ASM_instruction_names[INSTRUCTION_XENUM_LAST] =
 	[INSTRUCTION_JL    ] = "jl",
 	[INSTRUCTION_JGE   ] = "jge",
 	[INSTRUCTION_JLE   ] = "jle",
+	[INSTRUCTION_JA    ] = "ja",
 	[INSTRUCTION_SETE  ] = "sete",
 	[INSTRUCTION_SETNE ] = "setne",
 	[INSTRUCTION_SETG  ] = "setg",
@@ -324,7 +325,11 @@ ASM_emit_directive(DirectiveType t, DirectiveOpt opt)
 		case DIRECTIVE_LONG:
 		{
 			if (opt.str)
-				printf(" %s + %ld", opt.str, (long int) opt.data);
+			{
+				printf(" %s", opt.str);
+				if (opt.data)
+					printf(" + %ld", (long int) opt.data);
+			}
 			else
 				ASM_emit_long_list(opt.data);
 			break ;
